@@ -27,7 +27,7 @@ def concept():
 @click.argument("query", required=False)
 @click.option("--owner", help="Filter by owner")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]))
-@click.option("--source", "repo", help="Filter by source/collection")
+@click.option("--repo", help="Filter by source/collection")
 @click.option("--repo-type", type=click.Choice(["source", "collection"]), default="source")
 @click.option("--version", help="Repository version")
 @click.option("--concept-class", help="Filter by concept class")

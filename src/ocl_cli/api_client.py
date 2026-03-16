@@ -332,6 +332,10 @@ class OCLAPIClient:
             params["sortAsc"] = sort if not sort.startswith("-") else None
             if sort.startswith("-"):
                 params["sortDesc"] = sort[1:]
+        if owner:
+            params["owner"] = owner
+        if owner_type and owner_type not in ("all",):
+            params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
 
         # Determine endpoint scope
         if all([owner_type, owner, repo_type, repo]):
@@ -477,6 +481,10 @@ class OCLAPIClient:
             params["sortAsc"] = sort if not sort.startswith("-") else None
             if sort.startswith("-"):
                 params["sortDesc"] = sort[1:]
+        if owner:
+            params["owner"] = owner
+        if owner_type and owner_type not in ("all",):
+            params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
 
         if all([owner_type, owner, repo_type, repo]):
             endpoint = _build_repo_endpoint(
