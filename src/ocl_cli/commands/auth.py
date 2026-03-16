@@ -56,11 +56,14 @@ def whoami(ctx):
     client = ctx.obj["client"]
     try:
         user = client.get_user()
-        output_result(ctx, user, lambda d: (
-            f"Username: {d.get('username', '?')}\n"
-            f"Name: {d.get('name', d.get('first_name', ''))} {d.get('last_name', '')}\n"
-            f"Email: {d.get('email', '?')}\n"
-            f"Server: {ctx.obj['server'].name} ({ctx.obj['server'].base_url})"
-        ))
+        def _format_user(d):
+            name = d.get("name") or f"{d.get('first_name', '')} {d.get('last_name', '')}".strip()
+            return (
+                f"Username: {d.get('username', '?')}\n"
+                f"Name: {name}\n"
+                f"Email: {d.get('email', '?')}\n"
+                f"Server: {ctx.obj['server'].name} ({ctx.obj['server'].base_url})"
+            )
+        output_result(ctx, user, _format_user)
     except APIError as e:
         handle_api_error(e)
