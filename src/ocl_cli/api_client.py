@@ -96,6 +96,16 @@ class OCLAPIClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    @staticmethod
+    def _clean_params(params: Optional[dict]) -> Optional[dict]:
+        """Normalize boolean values to lowercase strings for the OCL API."""
+        if not params:
+            return params
+        return {
+            k: str(v).lower() if isinstance(v, bool) else v
+            for k, v in params.items()
+        }
+
     def _log_request(self, method: str, endpoint: str, params: dict | None = None):
         if self.debug:
             url = f"{self.base_url}{endpoint}"
@@ -129,6 +139,7 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def get(self, endpoint: str, params: Optional[dict] = None) -> Any:
+        params = self._clean_params(params)
         self._log_request("GET", endpoint, params)
         response = self.client.get(endpoint, params=params)
         self._handle_error(response)
@@ -140,6 +151,7 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def post(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
+        params = self._clean_params(params)
         self._log_request("POST", endpoint, params)
         response = self.client.post(endpoint, json=json, params=params)
         self._handle_error(response)
@@ -162,6 +174,7 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def patch(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
+        params = self._clean_params(params)
         self._log_request("PATCH", endpoint, params)
         response = self.client.patch(endpoint, json=json, params=params)
         self._handle_error(response)
