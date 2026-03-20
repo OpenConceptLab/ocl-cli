@@ -10,6 +10,17 @@ from typing import Any, Callable, Optional
 import click
 
 
+def _source_from_url(url: str) -> str:
+    """Extract a short source identifier from a source URL like /orgs/WHO/sources/ICD-10-WHO/."""
+    if not url:
+        return ""
+    parts = [p for p in url.strip("/").split("/") if p]
+    # Expected: orgs/OWNER/sources/SOURCE or users/OWNER/sources/SOURCE
+    if len(parts) >= 4 and parts[2] == "sources":
+        return f"{parts[1]}/{parts[3]}"
+    return url
+
+
 def output_result(
     ctx: click.Context,
     data: Any,
@@ -238,6 +249,28 @@ def format_concept_detail(data: dict) -> str:
         for d in descriptions:
             lines.append(f"    [{d.get('locale', '?')}] {d.get('description', '')}")
 
+    mappings = data.get("mappings", [])
+    if mappings:
+        lines.append("  mappings:")
+        for m in mappings:
+            to_source = _source_from_url(m.get("to_source_url", ""))
+            to_code = m.get("to_concept_code", m.get("to_concept_url", ""))
+            to_name = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
+            name_label = f" {to_name}" if to_name else ""
+            source_label = f" ({to_source})" if to_source else ""
+            lines.append(f"    [{m.get('map_type', '')}] → {to_code}{name_label}{source_label}")
+
+    inverse_mappings = data.get("inverse_mappings", [])
+    if inverse_mappings:
+        lines.append("  inverse_mappings:")
+        for m in inverse_mappings:
+            from_source = _source_from_url(m.get("from_source_url", ""))
+            from_code = m.get("from_concept_code", m.get("from_concept_url", ""))
+            from_name = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
+            name_label = f" {from_name}" if from_name else ""
+            source_label = f" ({from_source})" if from_source else ""
+            lines.append(f"    [{m.get('map_type', '')}] ← {from_code}{name_label}{source_label}")
+
     extras = data.get("extras")
     if extras:
         lines.append(f"  extras: {json.dumps(extras, default=str)}")
@@ -263,16 +296,17 @@ def format_mapping_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
             "retired": str(m.get("retired", False)),
         }
         if verbose:
-            row["from_name"] = m.get("from_concept_name", "")
-            row["to_name"] = m.get("to_concept_name", "")
+            row["from_name"] = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
+            row["to_source"] = _source_from_url(m.get("to_source_url", ""))
+            row["to_name"] = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
             row["updated_on"] = str(m.get("updated_on", ""))[:10]
         display_rows.append(row)
 
     if verbose:
         table = format_table(
             display_rows,
-            columns=["id", "map_type", "from", "from_name", "to", "to_name", "source", "retired", "updated_on"],
-            headers=["ID", "Map Type", "From", "From Name", "To", "To Name", "Source", "Retired", "Updated"],
+            columns=["id", "map_type", "from", "from_name", "to", "to_source", "to_name", "source", "retired", "updated_on"],
+            headers=["ID", "Map Type", "From", "From Name", "To", "To Source", "To Name", "Source", "Retired", "Updated"],
         )
     else:
         table = format_table(
@@ -293,6 +327,9 @@ def format_mapping_detail(data: dict) -> str:
                  "to_concept_url", "to_concept_code", "to_concept_name", "to_source_url",
                  "external_id", "created_on", "updated_on"]:
         val = data.get(key)
+        # Fall back to *_resolved fields for concept names
+        if val is None and key in ("from_concept_name", "to_concept_name"):
+            val = data.get(f"{key}_resolved")
         if val is not None:
             lines.append(f"  {key}: {val}")
     extras = data.get("extras")
@@ -347,7 +384,10 @@ def format_cascade_results(data: dict) -> str:
     if mappings:
         lines.append("\nMappings:")
         for m in mappings[:30]:
-            lines.append(f"  {m.get('id', '')} [{m.get('map_type', '')}] → {m.get('to_concept_code', m.get('to_concept_url', ''))}")
+            to_source = _source_from_url(m.get("to_source_url", ""))
+            to_code = m.get("to_concept_code", m.get("to_concept_url", ""))
+            source_label = f" ({to_source})" if to_source else ""
+            lines.append(f"  {m.get('id', '')} [{m.get('map_type', '')}] → {to_code}{source_label}")
         if len(mappings) > 30:
             lines.append(f"  ... and {len(mappings) - 30} more")
 
