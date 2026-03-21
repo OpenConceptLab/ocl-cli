@@ -548,7 +548,8 @@ class OCLAPIClient:
         cascade_mappings: bool = True,
         cascade_levels: str = "*",
         reverse: bool = False,
-        view: str = "flat",
+        view: str = "hierarchy",
+        verbose: bool = False,
         omit_if_exists_in: Optional[str] = None,
         equivalency_map_type: Optional[str] = None,
     ) -> dict:
@@ -559,6 +560,8 @@ class OCLAPIClient:
         )
 
         params: dict[str, Any] = {}
+        if verbose:
+            params["verbose"] = True
         if map_types:
             params["mapTypes"] = ",".join(map_types)
         if exclude_map_types:
@@ -575,8 +578,10 @@ class OCLAPIClient:
             params["cascadeLevels"] = cascade_levels
         if reverse:
             params["reverse"] = "true"
-        if view != "flat":
+        if view != "hierarchy":
             params["view"] = view
+        else:
+            params["view"] = "hierarchy"
         if omit_if_exists_in:
             params["omitIfExistsIn"] = omit_if_exists_in
         if equivalency_map_type:

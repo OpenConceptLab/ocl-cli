@@ -362,22 +362,51 @@ def format_match_results(data: dict) -> str:
     return "\n".join(lines)
 
 
-def format_cascade_results(data: dict) -> str:
-    """Format $cascade results."""
+def _format_concept_label(c: dict, verbose: bool = False) -> str:
+    """Format a concept label, optionally with class and datatype."""
+    label = f"{c.get('id', '')} - {c.get('display_name', c.get('name', ''))}"
+    if verbose:
+        parts = []
+        concept_class = c.get("concept_class")
+        if concept_class:
+            parts.append(concept_class)
+        datatype = c.get("datatype")
+        if datatype and datatype not in ("None", "N/A", "", None):
+            parts.append(datatype)
+        if parts:
+            label += f" [{', '.join(parts)}]"
+    return label
+
+
+def _format_cascade_summary(concepts: list, mappings: list, verbose: bool = False) -> str:
+    """Format the cascade summary line with optional class breakdown."""
+    if verbose and concepts:
+        from collections import Counter
+        class_counts = Counter(c.get("concept_class", "Unknown") for c in concepts)
+        if len(class_counts) > 1:
+            breakdown = ", ".join(f"{count} {cls}" for cls, count in class_counts.most_common())
+            return f"Cascade results: {len(concepts)} concepts ({breakdown}), {len(mappings)} mappings"
+    return f"Cascade results: {len(concepts)} concepts, {len(mappings)} mappings"
+
+
+def format_cascade_results(data: dict, root_id: str = "", verbose: bool = False) -> str:
+    """Format $cascade results (flat view)."""
     entries = data.get("entry", [])
     if not entries:
         return "No cascade results."
 
     concepts = [e for e in entries if "concept_class" in e or e.get("type") == "Concept"]
     mappings = [e for e in entries if "map_type" in e or e.get("type") == "Mapping"]
-    other = [e for e in entries if e not in concepts and e not in mappings]
 
-    lines = [f"Cascade results: {len(concepts)} concepts, {len(mappings)} mappings"]
+    lines = [_format_cascade_summary(concepts, mappings, verbose)]
 
     if concepts:
         lines.append("\nConcepts:")
         for c in concepts[:50]:
-            lines.append(f"  {c.get('id', '')} - {c.get('display_name', c.get('name', ''))}")
+            label = _format_concept_label(c, verbose)
+            if root_id and str(c.get("id", "")) == str(root_id):
+                label += " (root)"
+            lines.append(f"  {label}")
         if len(concepts) > 50:
             lines.append(f"  ... and {len(concepts) - 50} more")
 
@@ -390,6 +419,120 @@ def format_cascade_results(data: dict) -> str:
             lines.append(f"  {m.get('id', '')} [{m.get('map_type', '')}] → {to_code}{source_label}")
         if len(mappings) > 30:
             lines.append(f"  ... and {len(mappings) - 30} more")
+
+    return "\n".join(lines)
+
+
+def _render_tree(node: dict, prefix: str, is_last: bool, lines: list,
+                 verbose: bool, node_count: list, max_nodes: int,
+                 concept_details: dict | None = None) -> None:
+    """Recursively render a hierarchy node as a tree."""
+    if node_count[0] >= max_nodes:
+        return
+
+    node_count[0] += 1
+    connector = "└── " if is_last else "├── "
+    # Render mappings differently from concepts
+    if node.get("type") == "Mapping" or "map_type" in node:
+        to_source = _source_from_url(node.get("to_source_url", ""))
+        to_code = node.get("to_concept_code", node.get("to_concept_url", ""))
+        source_label = f" ({to_source})" if to_source else ""
+        label = f"[{node.get('map_type', '')}] → {to_code}{source_label}"
+        lines.append(f"{prefix}{connector}{label}")
+        return
+    # Enrich node with concept details if available
+    enriched = node
+    if verbose and concept_details:
+        detail = concept_details.get(str(node.get("id", "")))
+        if detail:
+            enriched = {**node, **{k: detail[k] for k in ("concept_class", "datatype") if k in detail}}
+    label = _format_concept_label(enriched, verbose)
+    lines.append(f"{prefix}{connector}{label}")
+
+    children = node.get("entries", [])
+    if not children:
+        return
+
+    child_prefix = prefix + ("    " if is_last else "│   ")
+
+    remaining_budget = max_nodes - node_count[0]
+    if len(children) > remaining_budget > 0:
+        # Show what we can, then summarize
+        for i, child in enumerate(children[:remaining_budget]):
+            _render_tree(child, child_prefix, i == remaining_budget - 1 and remaining_budget == len(children),
+                         lines, verbose, node_count, max_nodes, concept_details)
+        if remaining_budget < len(children):
+            lines.append(f"{child_prefix}... and {len(children) - remaining_budget} more")
+        return
+
+    for i, child in enumerate(children):
+        _render_tree(child, child_prefix, i == len(children) - 1,
+                     lines, verbose, node_count, max_nodes, concept_details)
+
+
+def _count_nodes(node: dict) -> int:
+    """Count total nodes in a hierarchy tree."""
+    count = 1
+    for child in node.get("entries", []):
+        count += _count_nodes(child)
+    return count
+
+
+def _count_by_type(node: dict) -> tuple[int, int]:
+    """Count concepts and mappings in a hierarchy tree."""
+    is_mapping = node.get("type") == "Mapping" or "map_type" in node
+    concepts = 0 if is_mapping else 1
+    mappings = 1 if is_mapping else 0
+    for child in node.get("entries", []):
+        c, m = _count_by_type(child)
+        concepts += c
+        mappings += m
+    return concepts, mappings
+
+
+def format_cascade_hierarchy(data: dict, verbose: bool = False,
+                             concept_details: dict | None = None) -> str:
+    """Format $cascade results as a tree (hierarchy view)."""
+    entry = data.get("entry", {})
+    if not entry:
+        return "No cascade results."
+
+    # Hierarchy view returns a single root node with nested entries
+    if isinstance(entry, list):
+        # Flat response passed to hierarchy formatter — fall back
+        return format_cascade_results(data, verbose=verbose)
+
+    total = _count_nodes(entry)
+    total_concepts, total_mappings = _count_by_type(entry)
+    max_nodes = 100
+    lines = []
+
+    # Root node — enrich with concept details if available
+    root = entry
+    if verbose and concept_details:
+        detail = concept_details.get(str(entry.get("id", "")))
+        if detail:
+            root = {**entry, **{k: detail[k] for k in ("concept_class", "datatype") if k in detail}}
+    root_label = _format_concept_label(root, verbose)
+    lines.append(root_label)
+
+    children = entry.get("entries", [])
+    node_count = [0]  # mutable counter for recursion
+
+    for i, child in enumerate(children):
+        _render_tree(child, "", i == len(children) - 1,
+                     lines, verbose, node_count, max_nodes, concept_details)
+
+    if total > max_nodes:
+        lines.append(f"\nShowing {max_nodes} of {total} total nodes")
+
+    # Append summary
+    parts = []
+    if total_concepts:
+        parts.append(f"{total_concepts} concepts")
+    if total_mappings:
+        parts.append(f"{total_mappings} mappings")
+    lines.insert(0, f"Cascade: {', '.join(parts) if parts else f'{total} nodes'}\n")
 
     return "\n".join(lines)
 
