@@ -357,12 +357,11 @@ def extra_del(ctx, owner, source, concept_id, key, owner_type):
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--limit", default=5, help="Matches per term")
 @click.option("--include-retired", is_flag=True)
-@click.option("--semantic/--no-semantic", default=True, help="Use semantic matching")
-@click.option("--best-match/--no-best-match", default=True)
+@click.option("--no-semantic", is_flag=True, help="Disable semantic matching (use keyword search only)")
 @click.option("--verbose", is_flag=True)
 @click.pass_context
 def match(ctx, terms, target_source, target_owner, target_version, owner_type,
-          limit, include_retired, semantic, best_match, verbose):
+          limit, include_retired, no_semantic, verbose):
     """Match terms against concepts using the $match endpoint."""
     client = ctx.obj["client"]
     try:
@@ -374,7 +373,7 @@ def match(ctx, terms, target_source, target_owner, target_version, owner_type,
         result = client.match_concepts(
             terms=list(terms), target_repo_url=target_repo_url,
             limit=limit, include_retired=include_retired,
-            semantic=semantic, best_match=best_match, verbose=verbose,
+            semantic=not no_semantic, verbose=verbose,
         )
         output_result(ctx, result, format_match_results)
     except APIError as e:

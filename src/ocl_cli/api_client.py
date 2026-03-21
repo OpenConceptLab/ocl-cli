@@ -96,23 +96,17 @@ class OCLAPIClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    @staticmethod
-    def _clean_params(params: Optional[dict]) -> Optional[dict]:
-        """Normalize boolean values to lowercase strings for the OCL API."""
-        if not params:
-            return params
-        return {
-            k: str(v).lower() if isinstance(v, bool) else v
-            for k, v in params.items()
-        }
-
-    def _log_request(self, method: str, endpoint: str, params: dict | None = None):
+    def _log_request(self, method: str, endpoint: str, params: dict | None = None,
+                     body: Any = None):
         if self.debug:
             url = f"{self.base_url}{endpoint}"
             if params:
                 from urllib.parse import urlencode
                 url = f"{url}?{urlencode(params, doseq=True)}"
             print(f"  {method} {url}", file=sys.stderr)
+            if body is not None:
+                import json as _json
+                print(f"  Body: {_json.dumps(body, default=str)}", file=sys.stderr)
 
     def _handle_error(self, response: httpx.Response) -> None:
         """Convert HTTP errors to APIError."""
@@ -139,7 +133,6 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def get(self, endpoint: str, params: Optional[dict] = None) -> Any:
-        params = self._clean_params(params)
         self._log_request("GET", endpoint, params)
         response = self.client.get(endpoint, params=params)
         self._handle_error(response)
@@ -151,8 +144,7 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def post(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
-        params = self._clean_params(params)
-        self._log_request("POST", endpoint, params)
+        self._log_request("POST", endpoint, params, body=json)
         response = self.client.post(endpoint, json=json, params=params)
         self._handle_error(response)
         return response.json()
@@ -163,7 +155,7 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def put(self, endpoint: str, json: Optional[dict] = None) -> Any:
-        self._log_request("PUT", endpoint)
+        self._log_request("PUT", endpoint, body=json)
         response = self.client.put(endpoint, json=json)
         self._handle_error(response)
         return response.json()
@@ -174,8 +166,7 @@ class OCLAPIClient:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
     def patch(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
-        params = self._clean_params(params)
-        self._log_request("PATCH", endpoint, params)
+        self._log_request("PATCH", endpoint, params, body=json)
         response = self.client.patch(endpoint, json=json, params=params)
         self._handle_error(response)
         return response.json()
@@ -603,7 +594,6 @@ class OCLAPIClient:
         limit: int = 5,
         include_retired: bool = False,
         semantic: bool = True,
-        best_match: bool = True,
         verbose: bool = False,
     ) -> dict:
         """Match concepts using the $match endpoint."""
@@ -614,7 +604,7 @@ class OCLAPIClient:
         params: dict[str, Any] = {
             "includeSearchMeta": True,
             "semantic": semantic,
-            "bestMatch": best_match,
+            "bestMatch": True,
         }
         if limit:
             params["limit"] = limit
