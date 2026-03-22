@@ -14,9 +14,9 @@ from ocl_cli.output import output_result, format_cascade_results, format_cascade
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--repo-type", type=click.Choice(["source", "collection"]), default="source")
 @click.option("--version", help="Repository version")
-@click.option("--map-types", help="Comma-separated map types to process")
+@click.option("--map-types", help="Comma-separated map types to traverse during cascade (controls which relationships are followed)")
 @click.option("--exclude-map-types", help="Comma-separated map types to exclude")
-@click.option("--return-map-types", help="Comma-separated map types to include in results")
+@click.option("--return-map-types", help="Comma-separated map types to include in output (does not affect traversal)")
 @click.option("--method", type=click.Choice(["sourcetoconcepts", "sourcemappings"]),
               default="sourcetoconcepts")
 @click.option("--cascade-hierarchy/--no-cascade-hierarchy", default=True)
