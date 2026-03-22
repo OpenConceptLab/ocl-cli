@@ -226,6 +226,72 @@ def format_concept_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
     return f"{table}\n{pagination}" if pagination else table
 
 
+def _format_mappings_table(mappings: list, is_inverse: bool = False) -> str:
+    """Format mappings as grouped tables by map_type."""
+    if not mappings:
+        return ""
+
+    # Keep flat list for small counts to avoid over-formatting
+    if len(mappings) <= 3:
+        lines = []
+        for m in mappings:
+            if is_inverse:
+                source = _source_from_url(m.get("from_source_url", ""))
+                code = m.get("from_concept_code", m.get("from_concept_url", ""))
+                name = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
+                direction = "←"
+            else:
+                source = _source_from_url(m.get("to_source_url", ""))
+                code = m.get("to_concept_code", m.get("to_concept_url", ""))
+                name = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
+                direction = "→"
+            
+            name_label = f" {name}" if name else ""
+            source_label = f" ({source})" if source else ""
+            lines.append(f"    [{m.get('map_type', '')}] {direction} {code}{name_label}{source_label}")
+        return "\n".join(lines)
+
+    # Group by map_type for larger counts
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for m in mappings:
+        groups[m.get('map_type', '')].append(m)
+
+    lines = []
+    for map_type, group_mappings in groups.items():
+        lines.append(f"    {map_type}:")
+        
+        # Build table rows
+        table_rows = []
+        for m in group_mappings:
+            if is_inverse:
+                source = _source_from_url(m.get("from_source_url", ""))
+                code = m.get("from_concept_code", m.get("from_concept_url", ""))
+                name = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
+            else:
+                source = _source_from_url(m.get("to_source_url", ""))
+                code = m.get("to_concept_code", m.get("to_concept_url", ""))
+                name = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
+            
+            table_rows.append({
+                "source": source,
+                "code": code,
+                "name": name or "",
+            })
+        
+        # Format as table with proper indentation
+        table = format_table(
+            table_rows,
+            columns=["source", "code", "name"],
+            headers=["Source", "Code", "Name"],
+        )
+        # Add extra indentation to each line of the table
+        indented_table = "\n".join(f"      {line}" for line in table.split("\n"))
+        lines.append(indented_table)
+    
+    return "\n".join(lines)
+
+
 def format_concept_detail(data: dict) -> str:
     """Format a single concept's details."""
     lines = []
@@ -252,24 +318,14 @@ def format_concept_detail(data: dict) -> str:
     mappings = data.get("mappings", [])
     if mappings:
         lines.append("  mappings:")
-        for m in mappings:
-            to_source = _source_from_url(m.get("to_source_url", ""))
-            to_code = m.get("to_concept_code", m.get("to_concept_url", ""))
-            to_name = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
-            name_label = f" {to_name}" if to_name else ""
-            source_label = f" ({to_source})" if to_source else ""
-            lines.append(f"    [{m.get('map_type', '')}] → {to_code}{name_label}{source_label}")
+        mapping_output = _format_mappings_table(mappings, is_inverse=False)
+        lines.append(mapping_output)
 
     inverse_mappings = data.get("inverse_mappings", [])
     if inverse_mappings:
         lines.append("  inverse_mappings:")
-        for m in inverse_mappings:
-            from_source = _source_from_url(m.get("from_source_url", ""))
-            from_code = m.get("from_concept_code", m.get("from_concept_url", ""))
-            from_name = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
-            name_label = f" {from_name}" if from_name else ""
-            source_label = f" ({from_source})" if from_source else ""
-            lines.append(f"    [{m.get('map_type', '')}] ← {from_code}{name_label}{source_label}")
+        inverse_mapping_output = _format_mappings_table(inverse_mappings, is_inverse=True)
+        lines.append(inverse_mapping_output)
 
     extras = data.get("extras")
     if extras:
