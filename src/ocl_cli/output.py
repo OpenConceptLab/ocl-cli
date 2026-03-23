@@ -99,88 +99,113 @@ def format_pagination(data: dict, page: int = 1, limit: int = 20) -> str:
 
 def format_owner_list(data: dict) -> str:
     """Format owner search results."""
-    lines = []
+    results = data.get("results", [])
+    if not results:
+        return "No owners found."
 
-    for section, label in [("users", "Users"), ("organizations", "Organizations")]:
-        section_data = data.get(section)
-        if not section_data:
-            continue
-        results = section_data.get("results", [])
-        if not results:
-            lines.append(f"\n{label}: No results found.")
-            continue
+    rows = []
+    for owner in results:
+        rows.append({
+            "id": owner.get("id", ""),
+            "name": owner.get("name", ""),
+            "type": owner.get("type", ""),
+            "public_repos": owner.get("public_sources", 0) + owner.get("public_collections", 0),
+            "location": owner.get("location", ""),
+        })
 
-        lines.append(f"\n{label}:")
-        table = format_table(
-            results,
-            columns=["username", "name", "url"],
-            headers=["Username", "Name", "URL"],
-        )
-        lines.append(table)
+    table = format_table(
+        rows,
+        ["id", "name", "type", "public_repos", "location"],
+        ["ID", "Name", "Type", "Public Repos", "Location"],
+    )
 
-        count = section_data.get("count", len(results))
-        if count > len(results):
-            lines.append(f"  ... and {count - len(results)} more")
-
-    return "\n".join(lines) if lines else "No results found."
+    pagination = format_pagination(data)
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def format_owner_detail(data: dict) -> str:
-    """Format a single owner's details."""
+    """Format single owner details."""
     lines = []
-    for key in ["username", "name", "company", "location", "url", "type", "public_access",
-                 "members", "created_on", "updated_on"]:
-        val = data.get(key)
-        if val is not None:
-            lines.append(f"  {key}: {val}")
-    extras = data.get("extras")
-    if extras:
-        lines.append(f"  extras: {json.dumps(extras, default=str)}")
-    return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)
+    lines.append(f"ID: {data.get('id', '')}")
+    lines.append(f"Name: {data.get('name', '')}")
+    lines.append(f"Type: {data.get('type', '')}")
+    lines.append(f"Company: {data.get('company', '')}")
+    lines.append(f"Location: {data.get('location', '')}")
+    lines.append(f"Website: {data.get('website', '')}")
+    lines.append(f"Public Sources: {data.get('public_sources', 0)}")
+    lines.append(f"Public Collections: {data.get('public_collections', 0)}")
+    lines.append(f"Created: {data.get('created_on', '')}")
+    lines.append(f"Updated: {data.get('updated_on', '')}")
+
+    if data.get("extras"):
+        lines.append("\nExtras:")
+        for key, value in data["extras"].items():
+            lines.append(f"  {key}: {value}")
+
+    return "\n".join(lines)
 
 
-def format_repo_list(data: dict) -> str:
+def format_repo_list(data: dict, verbose: bool = False) -> str:
     """Format repository search results."""
     results = data.get("results", [])
     if not results:
         return "No repositories found."
 
-    table = format_table(
-        results,
-        columns=["short_code", "name", "owner", "repo_type", "url"],
-        headers=["ID", "Name", "Owner", "Type", "URL"],
-    )
+    rows = []
+    for repo in results:
+        row = {
+            "id": repo.get("id", ""),
+            "name": repo.get("name", ""),
+            "type": repo.get("source_type") or repo.get("collection_type", ""),
+            "owner": repo.get("owner", ""),
+            "version": repo.get("version", ""),
+            "concepts": repo.get("active_concepts", 0),
+        }
+
+        if verbose:
+            row.update({
+                "description": repo.get("description", "")[:50] + ("..." if len(repo.get("description", "")) > 50 else ""),
+                "updated": repo.get("updated_on", "")[:10] if repo.get("updated_on") else "",
+            })
+
+        rows.append(row)
+
+    columns = ["id", "name", "type", "owner", "version", "concepts"]
+    headers = ["ID", "Name", "Type", "Owner", "Version", "Concepts"]
+
+    if verbose:
+        columns.extend(["description", "updated"])
+        headers.extend(["Description", "Updated"])
+
+    table = format_table(rows, columns, headers)
     pagination = format_pagination(data)
-    return f"{table}\n{pagination}" if pagination else table
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def format_repo_detail(data: dict) -> str:
-    """Format a single repo's details."""
+    """Format single repository details."""
     lines = []
-    for key in ["short_code", "name", "full_name", "description", "type", "owner", "owner_type",
-                 "url", "canonical_url", "default_locale", "supported_locales",
-                 "source_type", "collection_type", "custom_validation_schema",
-                 "public_access", "versions_url", "concepts_url", "active_concepts",
-                 "active_mappings", "created_on", "updated_on"]:
-        val = data.get(key)
-        if val is not None:
-            lines.append(f"  {key}: {val}")
-    extras = data.get("extras")
-    if extras:
-        lines.append(f"  extras: {json.dumps(extras, default=str)}")
-    return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)
+    lines.append(f"ID: {data.get('id', '')}")
+    lines.append(f"Name: {data.get('name', '')}")
+    lines.append(f"Type: {data.get('source_type') or data.get('collection_type', '')}")
+    lines.append(f"Owner: {data.get('owner', '')}")
+    lines.append(f"Version: {data.get('version', '')}")
+    lines.append(f"Description: {data.get('description', '')}")
+    lines.append(f"Default Locale: {data.get('default_locale', '')}")
+    lines.append(f"Supported Locales: {', '.join(data.get('supported_locales', []))}")
+    lines.append(f"Public Access: {data.get('public_access', '')}")
+    lines.append(f"Active Concepts: {data.get('active_concepts', 0)}")
+    lines.append(f"Active Mappings: {data.get('active_mappings', 0)}")
+    lines.append(f"Created: {data.get('created_on', '')}")
+    lines.append(f"Updated: {data.get('updated_on', '')}")
+    lines.append(f"URL: {data.get('url', '')}")
 
+    if data.get("extras"):
+        lines.append("\nExtras:")
+        for key, value in data["extras"].items():
+            lines.append(f"  {key}: {value}")
 
-def format_version_list(data: dict) -> str:
-    """Format repository version list."""
-    results = data.get("results", [])
-    if not results:
-        return "No versions found."
-    return format_table(
-        results,
-        columns=["id", "released", "description", "created_on"],
-        headers=["Version", "Released", "Description", "Created"],
-    )
+    return "\n".join(lines)
 
 
 def format_concept_list(data: dict, page: int = 1, limit: int = 20, verbose: bool = False) -> str:
@@ -189,149 +214,110 @@ def format_concept_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
     if not results:
         return "No concepts found."
 
+    rows = []
+    for concept in results:
+        row = {
+            "id": concept.get("id", ""),
+            "display_name": concept.get("display_name", ""),
+            "concept_class": concept.get("concept_class", ""),
+            "datatype": concept.get("datatype", ""),
+            "source": _source_from_url(concept.get("source_url", "")),
+        }
+
+        if verbose:
+            row.update({
+                "description": concept.get("description", "")[:40] + ("..." if len(concept.get("description", "")) > 40 else ""),
+                "updated": concept.get("updated_on", "")[:10] if concept.get("updated_on") else "",
+            })
+
+        rows.append(row)
+
+    columns = ["id", "display_name", "concept_class", "datatype", "source"]
+    headers = ["ID", "Display Name", "Class", "Datatype", "Source"]
+
     if verbose:
-        # Build rows with names summary and updated date
-        display_rows = []
-        for r in results:
-            names = r.get("names", [])
-            names_summary = ", ".join(
-                f"{n.get('locale', '?')}:{n.get('name', '')}"
-                for n in names[:4]
-            )
-            if len(names) > 4:
-                names_summary += f" (+{len(names) - 4})"
-            display_rows.append({
-                "id": r.get("id", ""),
-                "display_name": r.get("display_name", ""),
-                "concept_class": r.get("concept_class", ""),
-                "datatype": r.get("datatype", ""),
-                "source": r.get("source", ""),
-                "retired": str(r.get("retired", "")),
-                "names": names_summary,
-                "updated_on": str(r.get("updated_on", ""))[:10],
-            })
-        table = format_table(
-            display_rows,
-            columns=["id", "display_name", "concept_class", "datatype", "source", "retired", "names", "updated_on"],
-            headers=["ID", "Name", "Class", "Datatype", "Source", "Retired", "Names", "Updated"],
-        )
-    else:
-        table = format_table(
-            results,
-            columns=["id", "display_name", "concept_class", "datatype", "source", "retired"],
-            headers=["ID", "Name", "Class", "Datatype", "Source", "Retired"],
-        )
+        columns.extend(["description", "updated"])
+        headers.extend(["Description", "Updated"])
 
+    table = format_table(rows, columns, headers)
     pagination = format_pagination(data, page, limit)
-    return f"{table}\n{pagination}" if pagination else table
-
-
-def _format_mappings_table(mappings: list, is_inverse: bool = False) -> str:
-    """Format mappings as grouped tables by map_type."""
-    if not mappings:
-        return ""
-
-    # Keep flat list for small counts to avoid over-formatting
-    if len(mappings) <= 3:
-        lines = []
-        for m in mappings:
-            if is_inverse:
-                source = _source_from_url(m.get("from_source_url", ""))
-                code = m.get("from_concept_code", m.get("from_concept_url", ""))
-                name = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
-                direction = "←"
-            else:
-                source = _source_from_url(m.get("to_source_url", ""))
-                code = m.get("to_concept_code", m.get("to_concept_url", ""))
-                name = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
-                direction = "→"
-            
-            name_label = f" {name}" if name else ""
-            source_label = f" ({source})" if source else ""
-            lines.append(f"    [{m.get('map_type', '')}] {direction} {code}{name_label}{source_label}")
-        return "\n".join(lines)
-
-    # Group by map_type for larger counts
-    from collections import defaultdict
-    groups = defaultdict(list)
-    for m in mappings:
-        groups[m.get('map_type', '')].append(m)
-
-    lines = []
-    for map_type, group_mappings in groups.items():
-        lines.append(f"    {map_type}:")
-        
-        # Build table rows
-        table_rows = []
-        for m in group_mappings:
-            if is_inverse:
-                source = _source_from_url(m.get("from_source_url", ""))
-                code = m.get("from_concept_code", m.get("from_concept_url", ""))
-                name = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
-            else:
-                source = _source_from_url(m.get("to_source_url", ""))
-                code = m.get("to_concept_code", m.get("to_concept_url", ""))
-                name = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
-            
-            table_rows.append({
-                "source": source,
-                "code": code,
-                "name": name or "",
-            })
-        
-        # Format as table with proper indentation
-        table = format_table(
-            table_rows,
-            columns=["source", "code", "name"],
-            headers=["Source", "Code", "Name"],
-        )
-        # Add extra indentation to each line of the table
-        indented_table = "\n".join(f"      {line}" for line in table.split("\n"))
-        lines.append(indented_table)
-    
-    return "\n".join(lines)
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def format_concept_detail(data: dict) -> str:
-    """Format a single concept's details."""
+    """Format single concept details."""
     lines = []
-    for key in ["id", "display_name", "concept_class", "datatype", "retired",
-                 "url", "owner", "owner_type", "source", "version",
-                 "external_id", "created_on", "updated_on", "version_created_on"]:
-        val = data.get(key)
-        if val is not None:
-            lines.append(f"  {key}: {val}")
+    lines.append(f"ID: {data.get('id', '')}")
+    lines.append(f"Display Name: {data.get('display_name', '')}")
+    lines.append(f"Concept Class: {data.get('concept_class', '')}")
+    lines.append(f"Datatype: {data.get('datatype', '')}")
+    lines.append(f"Source: {_source_from_url(data.get('source_url', ''))}")
+    lines.append(f"Owner: {data.get('owner', '')}")
+    lines.append(f"Version: {data.get('version', '')}")
+    lines.append(f"Description: {data.get('description', '')}")
+    lines.append(f"Retired: {data.get('retired', False)}")
+    lines.append(f"Created: {data.get('created_on', '')}")
+    lines.append(f"Updated: {data.get('updated_on', '')}")
+    lines.append(f"URL: {data.get('url', '')}")
 
-    names = data.get("names", [])
-    if names:
-        lines.append("  names:")
-        for n in names:
-            pref = " *" if n.get("locale_preferred") else ""
-            lines.append(f"    [{n.get('locale', '?')}] {n.get('name', '')}{pref} ({n.get('name_type', '')})")
+    # Names
+    if data.get("names"):
+        lines.append("\nNames:")
+        for name in data["names"]:
+            locale = name.get("locale", "")
+            name_type = name.get("name_type", "")
+            name_val = name.get("name", "")
+            lines.append(f"  {name_val} ({locale}, {name_type})")
 
-    descriptions = data.get("descriptions", [])
-    if descriptions:
-        lines.append("  descriptions:")
-        for d in descriptions:
-            lines.append(f"    [{d.get('locale', '?')}] {d.get('description', '')}")
+    # Descriptions
+    if data.get("descriptions"):
+        lines.append("\nDescriptions:")
+        for desc in data["descriptions"]:
+            locale = desc.get("locale", "")
+            desc_type = desc.get("description_type", "")
+            desc_val = desc.get("description", "")
+            lines.append(f"  {desc_val} ({locale}, {desc_type})")
 
-    mappings = data.get("mappings", [])
-    if mappings:
-        lines.append("  mappings:")
-        mapping_output = _format_mappings_table(mappings, is_inverse=False)
-        lines.append(mapping_output)
+    # Mappings (if included)
+    if data.get("mappings"):
+        lines.append("\nMappings:")
+        lines.append(format_mappings_table(data["mappings"]))
 
-    inverse_mappings = data.get("inverse_mappings", [])
-    if inverse_mappings:
-        lines.append("  inverse_mappings:")
-        inverse_mapping_output = _format_mappings_table(inverse_mappings, is_inverse=True)
-        lines.append(inverse_mapping_output)
+    # Extras
+    if data.get("extras"):
+        lines.append("\nExtras:")
+        for key, value in data["extras"].items():
+            lines.append(f"  {key}: {value}")
 
-    extras = data.get("extras")
-    if extras:
-        lines.append(f"  extras: {json.dumps(extras, default=str)}")
+    return "\n".join(lines)
 
-    return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)
+
+def format_mappings_table(mappings: list) -> str:
+    """Format mappings as a cross-reference table."""
+    if not mappings:
+        return "  No mappings found."
+
+    rows = []
+    for mapping in mappings:
+        # Extract target source from to_source_url
+        target_source = _source_from_url(mapping.get("to_source_url", ""))
+
+        rows.append({
+            "target_source": target_source,
+            "target_code": mapping.get("to_concept_code", ""),
+            "target_name": mapping.get("to_concept_name", ""),
+            "map_type": mapping.get("map_type", ""),
+        })
+
+    # Format as indented table
+    table = format_table(
+        rows,
+        ["target_source", "target_code", "target_name", "map_type"],
+        ["Target Source", "Target Code", "Target Name", "Map Type"],
+    )
+
+    # Indent each line
+    return "\n".join(f"  {line}" for line in table.split("\n"))
 
 
 def format_mapping_list(data: dict, page: int = 1, limit: int = 20, verbose: bool = False) -> str:
@@ -340,312 +326,282 @@ def format_mapping_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
     if not results:
         return "No mappings found."
 
-    # Build display rows with from/to info
-    display_rows = []
-    for m in results:
+    rows = []
+    for mapping in results:
         row = {
-            "id": m.get("id", ""),
-            "map_type": m.get("map_type", ""),
-            "from": m.get("from_concept_code", "") or m.get("from_concept_url", ""),
-            "to": m.get("to_concept_code", "") or m.get("to_concept_url", ""),
-            "source": m.get("source", ""),
-            "retired": str(m.get("retired", False)),
+            "id": mapping.get("id", ""),
+            "from_code": mapping.get("from_concept_code", ""),
+            "to_code": mapping.get("to_concept_code", ""),
+            "map_type": mapping.get("map_type", ""),
+            "source": _source_from_url(mapping.get("source_url", "")),
         }
+
         if verbose:
-            row["from_name"] = m.get("from_concept_name") or m.get("from_concept_name_resolved", "")
-            row["to_source"] = _source_from_url(m.get("to_source_url", ""))
-            row["to_name"] = m.get("to_concept_name") or m.get("to_concept_name_resolved", "")
-            row["updated_on"] = str(m.get("updated_on", ""))[:10]
-        display_rows.append(row)
+            row.update({
+                "from_name": mapping.get("from_concept_name", "")[:30] + ("..." if len(mapping.get("from_concept_name", "")) > 30 else ""),
+                "to_name": mapping.get("to_concept_name", "")[:30] + ("..." if len(mapping.get("to_concept_name", "")) > 30 else ""),
+                "to_source": _source_from_url(mapping.get("to_source_url", "")),
+            })
+
+        rows.append(row)
+
+    columns = ["id", "from_code", "to_code", "map_type", "source"]
+    headers = ["ID", "From Code", "To Code", "Map Type", "Source"]
 
     if verbose:
-        table = format_table(
-            display_rows,
-            columns=["id", "map_type", "from", "from_name", "to", "to_source", "to_name", "source", "retired", "updated_on"],
-            headers=["ID", "Map Type", "From", "From Name", "To", "To Source", "To Name", "Source", "Retired", "Updated"],
-        )
-    else:
-        table = format_table(
-            display_rows,
-            columns=["id", "map_type", "from", "to", "source", "retired"],
-            headers=["ID", "Map Type", "From", "To", "Source", "Retired"],
-        )
+        columns = ["id", "from_code", "from_name", "to_code", "to_name", "to_source", "map_type"]
+        headers = ["ID", "From Code", "From Name", "To Code", "To Name", "To Source", "Map Type"]
 
+    table = format_table(rows, columns, headers)
     pagination = format_pagination(data, page, limit)
-    return f"{table}\n{pagination}" if pagination else table
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def format_mapping_detail(data: dict) -> str:
-    """Format a single mapping's details."""
+    """Format single mapping details."""
     lines = []
-    for key in ["id", "map_type", "retired", "url", "source", "owner", "owner_type",
-                 "from_concept_url", "from_concept_code", "from_concept_name", "from_source_url",
-                 "to_concept_url", "to_concept_code", "to_concept_name", "to_source_url",
-                 "external_id", "created_on", "updated_on"]:
-        val = data.get(key)
-        # Fall back to *_resolved fields for concept names
-        if val is None and key in ("from_concept_name", "to_concept_name"):
-            val = data.get(f"{key}_resolved")
-        if val is not None:
-            lines.append(f"  {key}: {val}")
-    extras = data.get("extras")
-    if extras:
-        lines.append(f"  extras: {json.dumps(extras, default=str)}")
-    return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)
+    lines.append(f"ID: {data.get('id', '')}")
+    lines.append(f"Map Type: {data.get('map_type', '')}")
+    lines.append(f"From Concept: {data.get('from_concept_code', '')} - {data.get('from_concept_name', '')}")
+    lines.append(f"To Concept: {data.get('to_concept_code', '')} - {data.get('to_concept_name', '')}")
+    lines.append(f"Source: {_source_from_url(data.get('source_url', ''))}")
+    lines.append(f"To Source: {_source_from_url(data.get('to_source_url', ''))}")
+    lines.append(f"Owner: {data.get('owner', '')}")
+    lines.append(f"Version: {data.get('version', '')}")
+    lines.append(f"Retired: {data.get('retired', False)}")
+    lines.append(f"Created: {data.get('created_on', '')}")
+    lines.append(f"Updated: {data.get('updated_on', '')}")
+    lines.append(f"URL: {data.get('url', '')}")
+
+    if data.get("extras"):
+        lines.append("\nExtras:")
+        for key, value in data["extras"].items():
+            lines.append(f"  {key}: {value}")
+
+    return "\n".join(lines)
+
+
+def format_version_list(data: dict) -> str:
+    """Format version list."""
+    results = data.get("results", [])
+    if not results:
+        return "No versions found."
+
+    rows = []
+    for version in results:
+        rows.append({
+            "id": version.get("id", ""),
+            "description": version.get("description", ""),
+            "released": "Yes" if version.get("released") else "No",
+            "created": version.get("created_on", "")[:10] if version.get("created_on") else "",
+        })
+
+    return format_table(
+        rows,
+        ["id", "description", "released", "created"],
+        ["Version", "Description", "Released", "Created"],
+    )
+
+
+def format_names_list(data: dict) -> str:
+    """Format concept names list."""
+    results = data.get("results", [])
+    if not results:
+        return "No names found."
+
+    rows = []
+    for name in results:
+        rows.append({
+            "name": name.get("name", ""),
+            "locale": name.get("locale", ""),
+            "type": name.get("name_type", ""),
+            "preferred": "Yes" if name.get("locale_preferred") else "No",
+        })
+
+    return format_table(
+        rows,
+        ["name", "locale", "type", "preferred"],
+        ["Name", "Locale", "Type", "Preferred"],
+    )
+
+
+def format_descriptions_list(data: dict) -> str:
+    """Format concept descriptions list."""
+    results = data.get("results", [])
+    if not results:
+        return "No descriptions found."
+
+    rows = []
+    for desc in results:
+        description_text = desc.get("description", "")
+        if len(description_text) > 60:
+            description_text = description_text[:57] + "..."
+
+        rows.append({
+            "description": description_text,
+            "locale": desc.get("locale", ""),
+            "type": desc.get("description_type", ""),
+            "preferred": "Yes" if desc.get("locale_preferred") else "No",
+        })
+
+    return format_table(
+        rows,
+        ["description", "locale", "type", "preferred"],
+        ["Description", "Locale", "Type", "Preferred"],
+    )
+
+
+def format_extras(data: dict) -> str:
+    """Format extras dictionary."""
+    if not data:
+        return "No extras found."
+
+    lines = []
+    for key, value in data.items():
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value, indent=2)
+        lines.append(f"{key}: {value}")
+
+    return "\n".join(lines)
 
 
 def format_match_results(data: dict) -> str:
-    """Format $match results."""
+    """Format concept match results."""
     results = data.get("results", [])
     if not results:
-        return "No match results."
+        return "No matches found."
+
+    rows = []
+    for match in results:
+        rows.append({
+            "score": f"{match.get('score', 0):.2f}",
+            "id": match.get("id", ""),
+            "display_name": match.get("display_name", ""),
+            "concept_class": match.get("concept_class", ""),
+            "source": _source_from_url(match.get("source_url", "")),
+        })
+
+    return format_table(
+        rows,
+        ["score", "id", "display_name", "concept_class", "source"],
+        ["Score", "ID", "Display Name", "Class", "Source"],
+    )
+
+
+def format_cascade_results(data: dict, tree_view: bool = True, verbose: bool = False) -> str:
+    """Format cascade results with tree visualization."""
+    results = data.get("results", [])
+    if not results:
+        return "No cascade results found."
+
+    if tree_view:
+        return _format_cascade_tree(results, verbose)
+    else:
+        return _format_cascade_table(results, verbose)
+
+
+def _format_cascade_tree(results: list, verbose: bool = False, level: int = 0, is_last: list = None) -> str:
+    """Format cascade results as a tree."""
+    if is_last is None:
+        is_last = []
 
     lines = []
-    for item in results:
-        row = item.get("row", {})
-        lines.append(f"\nQuery: {row.get('name', row)}")
-        matches = item.get("results", [])
-        if not matches:
-            lines.append("  No matches found.")
-            continue
-        for m in matches:
-            score = m.get("search_meta", {}).get("search_score", "?")
-            match_type = m.get("search_meta", {}).get("match_type", "")
-            lines.append(
-                f"  [{score:.2f}] {m.get('id', '')} - {m.get('display_name', '')}"
-                f"  ({match_type}) {m.get('url', '')}"
-            )
+    for i, item in enumerate(results):
+        is_last_item = i == len(results) - 1
+        current_is_last = is_last + [is_last_item]
+
+        # Build prefix
+        prefix = ""
+        for j, last in enumerate(current_is_last[:-1]):
+            if last:
+                prefix += "    "
+            else:
+                prefix += "│   "
+
+        if level > 0:
+            if is_last_item:
+                prefix += "└── "
+            else:
+                prefix += "├── "
+
+        # Format item
+        concept_id = item.get("id", "")
+        display_name = item.get("display_name", "")
+        concept_class = item.get("concept_class", "")
+
+        line = f"{prefix}{concept_id}"
+        if display_name:
+            line += f" - {display_name}"
+        if verbose and concept_class:
+            line += f" ({concept_class})"
+
+        lines.append(line)
+
+        # Recursively format children
+        children = item.get("cascade", [])
+        if children:
+            child_lines = _format_cascade_tree(children, verbose, level + 1, current_is_last)
+            lines.append(child_lines)
+
     return "\n".join(lines)
 
 
-def _format_concept_label(c: dict, verbose: bool = False) -> str:
-    """Format a concept label, optionally with class and datatype."""
-    label = f"{c.get('id', '')} - {c.get('display_name', c.get('name', ''))}"
+def _format_cascade_table(results: list, verbose: bool = False) -> str:
+    """Format cascade results as a flat table."""
+    rows = []
+
+    def flatten_results(items, level=0):
+        for item in items:
+            row = {
+                "level": "  " * level,
+                "id": item.get("id", ""),
+                "display_name": item.get("display_name", ""),
+                "concept_class": item.get("concept_class", ""),
+                "source": _source_from_url(item.get("source_url", "")),
+            }
+
+            if verbose:
+                row["datatype"] = item.get("datatype", "")
+
+            rows.append(row)
+
+            # Process children
+            children = item.get("cascade", [])
+            if children:
+                flatten_results(children, level + 1)
+
+    flatten_results(results)
+
+    columns = ["level", "id", "display_name", "concept_class", "source"]
+    headers = ["Level", "ID", "Display Name", "Class", "Source"]
+
     if verbose:
-        parts = []
-        concept_class = c.get("concept_class")
-        if concept_class:
-            parts.append(concept_class)
-        datatype = c.get("datatype")
-        if datatype and datatype not in ("None", "N/A", "", None):
-            parts.append(datatype)
-        if parts:
-            label += f" [{', '.join(parts)}]"
-    return label
+        columns.append("datatype")
+        headers.append("Datatype")
+
+    return format_table(rows, columns, headers)
 
 
-def _format_cascade_summary(concepts: list, mappings: list, verbose: bool = False) -> str:
-    """Format the cascade summary line with optional class breakdown."""
-    if verbose and concepts:
-        from collections import Counter
-        class_counts = Counter(c.get("concept_class", "Unknown") for c in concepts)
-        if len(class_counts) > 1:
-            breakdown = ", ".join(f"{count} {cls}" for cls, count in class_counts.most_common())
-            return f"Cascade results: {len(concepts)} concepts ({breakdown}), {len(mappings)} mappings"
-    return f"Cascade results: {len(concepts)} concepts, {len(mappings)} mappings"
-
-
-def format_cascade_results(data: dict, root_id: str = "", verbose: bool = False) -> str:
-    """Format $cascade results (flat view)."""
-    entries = data.get("entry", [])
-    if not entries:
-        return "No cascade results."
-
-    concepts = [e for e in entries if "concept_class" in e or e.get("type") == "Concept"]
-    mappings = [e for e in entries if "map_type" in e or e.get("type") == "Mapping"]
-
-    lines = [_format_cascade_summary(concepts, mappings, verbose)]
-
-    if concepts:
-        lines.append("\nConcepts:")
-        for c in concepts[:50]:
-            label = _format_concept_label(c, verbose)
-            if root_id and str(c.get("id", "")) == str(root_id):
-                label += " (root)"
-            lines.append(f"  {label}")
-        if len(concepts) > 50:
-            lines.append(f"  ... and {len(concepts) - 50} more")
-
-    if mappings:
-        lines.append("\nMappings:")
-        for m in mappings[:30]:
-            to_source = _source_from_url(m.get("to_source_url", ""))
-            to_code = m.get("to_concept_code", m.get("to_concept_url", ""))
-            source_label = f" ({to_source})" if to_source else ""
-            lines.append(f"  {m.get('id', '')} [{m.get('map_type', '')}] → {to_code}{source_label}")
-        if len(mappings) > 30:
-            lines.append(f"  ... and {len(mappings) - 30} more")
-
-    return "\n".join(lines)
-
-
-def _render_tree(node: dict, prefix: str, is_last: bool, lines: list,
-                 verbose: bool, node_count: list, max_nodes: int,
-                 concept_details: dict | None = None) -> None:
-    """Recursively render a hierarchy node as a tree."""
-    if node_count[0] >= max_nodes:
-        return
-
-    node_count[0] += 1
-    connector = "└── " if is_last else "├── "
-    # Render mappings differently from concepts
-    if node.get("type") == "Mapping" or "map_type" in node:
-        to_source = _source_from_url(node.get("to_source_url", ""))
-        to_code = node.get("to_concept_code", node.get("to_concept_url", ""))
-        source_label = f" ({to_source})" if to_source else ""
-        label = f"[{node.get('map_type', '')}] → {to_code}{source_label}"
-        lines.append(f"{prefix}{connector}{label}")
-        return
-    # Enrich node with concept details if available
-    enriched = node
-    if verbose and concept_details:
-        detail = concept_details.get(str(node.get("id", "")))
-        if detail:
-            enriched = {**node, **{k: detail[k] for k in ("concept_class", "datatype") if k in detail}}
-    label = _format_concept_label(enriched, verbose)
-    lines.append(f"{prefix}{connector}{label}")
-
-    children = node.get("entries", [])
-    if not children:
-        return
-
-    child_prefix = prefix + ("    " if is_last else "│   ")
-
-    remaining_budget = max_nodes - node_count[0]
-    if len(children) > remaining_budget > 0:
-        # Show what we can, then summarize
-        for i, child in enumerate(children[:remaining_budget]):
-            _render_tree(child, child_prefix, i == remaining_budget - 1 and remaining_budget == len(children),
-                         lines, verbose, node_count, max_nodes, concept_details)
-        if remaining_budget < len(children):
-            lines.append(f"{child_prefix}... and {len(children) - remaining_budget} more")
-        return
-
-    for i, child in enumerate(children):
-        _render_tree(child, child_prefix, i == len(children) - 1,
-                     lines, verbose, node_count, max_nodes, concept_details)
-
-
-def _count_nodes(node: dict) -> int:
-    """Count total nodes in a hierarchy tree."""
-    count = 1
-    for child in node.get("entries", []):
-        count += _count_nodes(child)
-    return count
-
-
-def _count_by_type(node: dict) -> tuple[int, int]:
-    """Count concepts and mappings in a hierarchy tree."""
-    is_mapping = node.get("type") == "Mapping" or "map_type" in node
-    concepts = 0 if is_mapping else 1
-    mappings = 1 if is_mapping else 0
-    for child in node.get("entries", []):
-        c, m = _count_by_type(child)
-        concepts += c
-        mappings += m
-    return concepts, mappings
-
-
-def format_cascade_hierarchy(data: dict, verbose: bool = False,
-                             concept_details: dict | None = None) -> str:
-    """Format $cascade results as a tree (hierarchy view)."""
-    entry = data.get("entry", {})
-    if not entry:
-        return "No cascade results."
-
-    # Hierarchy view returns a single root node with nested entries
-    if isinstance(entry, list):
-        # Flat response passed to hierarchy formatter — fall back
-        return format_cascade_results(data, verbose=verbose)
-
-    total = _count_nodes(entry)
-    total_concepts, total_mappings = _count_by_type(entry)
-    max_nodes = 100
-    lines = []
-
-    # Root node — enrich with concept details if available
-    root = entry
-    if verbose and concept_details:
-        detail = concept_details.get(str(entry.get("id", "")))
-        if detail:
-            root = {**entry, **{k: detail[k] for k in ("concept_class", "datatype") if k in detail}}
-    root_label = _format_concept_label(root, verbose)
-    lines.append(root_label)
-
-    children = entry.get("entries", [])
-    node_count = [0]  # mutable counter for recursion
-
-    for i, child in enumerate(children):
-        _render_tree(child, "", i == len(children) - 1,
-                     lines, verbose, node_count, max_nodes, concept_details)
-
-    if total > max_nodes:
-        lines.append(f"\nShowing {max_nodes} of {total} total nodes")
-
-    # Append summary
-    parts = []
-    if total_concepts:
-        parts.append(f"{total_concepts} concepts")
-    if total_mappings:
-        parts.append(f"{total_mappings} mappings")
-    lines.insert(0, f"Cascade: {', '.join(parts) if parts else f'{total} nodes'}\n")
-
-    return "\n".join(lines)
-
-
-def format_ref_list(data: dict, page: int = 1, limit: int = 20) -> str:
+def format_reference_list(data: dict) -> str:
     """Format collection reference list."""
     results = data.get("results", [])
     if not results:
         return "No references found."
 
-    # References can be strings or dicts
-    if results and isinstance(results[0], str):
-        return "\n".join(results)
-
-    table = format_table(
-        results,
-        columns=["expression", "reference_type", "concept_class"],
-        headers=["Expression", "Type", "Class"],
-    )
-    pagination = format_pagination(data, page, limit)
-    return f"{table}\n{pagination}" if pagination else table
-
-
-def format_names_list(data: dict) -> str:
-    """Format concept names."""
-    results = data.get("results", [])
-    if not results:
-        return "No names found."
+    rows = []
+    for ref in results:
+        rows.append({
+            "expression": ref.get("expression", ""),
+            "type": ref.get("reference_type", ""),
+            "concepts": ref.get("concepts", 0),
+            "mappings": ref.get("mappings", 0),
+        })
 
     return format_table(
-        results,
-        columns=["uuid", "name", "locale", "name_type", "locale_preferred"],
-        headers=["UUID", "Name", "Locale", "Type", "Preferred"],
+        rows,
+        ["expression", "type", "concepts", "mappings"],
+        ["Expression", "Type", "Concepts", "Mappings"],
     )
-
-
-def format_descriptions_list(data: dict) -> str:
-    """Format concept descriptions."""
-    results = data.get("results", [])
-    if not results:
-        return "No descriptions found."
-
-    return format_table(
-        results,
-        columns=["uuid", "description", "locale", "description_type"],
-        headers=["UUID", "Description", "Locale", "Type"],
-    )
-
-
-def format_extras(data: dict) -> str:
-    """Format extras (custom attributes)."""
-    if not data:
-        return "No custom attributes."
-    lines = []
-    for key, val in data.items():
-        lines.append(f"  {key}: {val}")
-    return "\n".join(lines)
 
 
 def format_expansion_list(data: dict) -> str:
@@ -654,8 +610,80 @@ def format_expansion_list(data: dict) -> str:
     if not results:
         return "No expansions found."
 
+    rows = []
+    for expansion in results:
+        rows.append({
+            "id": expansion.get("id", ""),
+            "collection_version": expansion.get("collection_version", ""),
+            "concepts": expansion.get("concepts", 0),
+            "mappings": expansion.get("mappings", 0),
+            "created": expansion.get("created_on", "")[:10] if expansion.get("created_on") else "",
+        })
+
     return format_table(
-        results,
-        columns=["mnemonic", "id", "created_on"],
-        headers=["Mnemonic", "ID", "Created"],
+        rows,
+        ["id", "collection_version", "concepts", "mappings", "created"],
+        ["ID", "Collection Version", "Concepts", "Mappings", "Created"],
+    )
+
+
+def format_expansion_detail(data: dict) -> str:
+    """Format single expansion details."""
+    lines = []
+    lines.append(f"ID: {data.get('id', '')}")
+    lines.append(f"Collection Version: {data.get('collection_version', '')}")
+    lines.append(f"Concepts: {data.get('concepts', 0)}")
+    lines.append(f"Mappings: {data.get('mappings', 0)}")
+    lines.append(f"Created: {data.get('created_on', '')}")
+    lines.append(f"URL: {data.get('url', '')}")
+
+    return "\n".join(lines)
+
+
+def format_user_detail(data: dict) -> str:
+    """Format user profile (whoami)."""
+    lines = []
+    lines.append(f"Username: {data.get('username', '')}")
+
+    # Prefer 'name' field over first_name/last_name concatenation
+    name = data.get("name", "").strip()
+    if not name:
+        first_name = data.get("first_name", "").strip()
+        last_name = data.get("last_name", "").strip()
+        name = f"{first_name} {last_name}".strip()
+
+    if name:
+        lines.append(f"Name: {name}")
+
+    lines.append(f"Email: {data.get('email', '')}")
+    lines.append(f"Company: {data.get('company', '')}")
+    lines.append(f"Location: {data.get('location', '')}")
+    lines.append(f"Date Joined: {data.get('date_joined', '')}")
+    lines.append(f"Last Login: {data.get('last_login', '')}")
+    lines.append(f"Organizations: {data.get('organizations', 0)}")
+    lines.append(f"Public Sources: {data.get('public_sources', 0)}")
+    lines.append(f"Public Collections: {data.get('public_collections', 0)}")
+
+    return "\n".join(lines)
+
+
+def format_server_list(servers: dict, default_server: str) -> str:
+    """Format server list."""
+    if not servers:
+        return "No servers configured."
+
+    rows = []
+    for server_id, config in servers.items():
+        marker = "* " if server_id == default_server else "  "
+        rows.append({
+            "marker": marker,
+            "id": server_id,
+            "name": config.get("name", ""),
+            "url": config.get("base_url", ""),
+        })
+
+    return format_table(
+        rows,
+        ["marker", "id", "name", "url"],
+        ["", "ID", "Name", "URL"],
     )
