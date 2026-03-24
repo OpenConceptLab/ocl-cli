@@ -466,26 +466,27 @@ def format_extras(data: dict) -> str:
 
 
 def format_match_results(data: dict) -> str:
-    """Format concept match results."""
+    """Format $match results grouped by input term."""
     results = data.get("results", [])
     if not results:
-        return "No matches found."
+        return "No match results."
 
-    rows = []
-    for match in results:
-        rows.append({
-            "score": f"{match.get('score', 0):.2f}",
-            "id": match.get("id", ""),
-            "display_name": match.get("display_name", ""),
-            "concept_class": match.get("concept_class", ""),
-            "source": _source_from_url(match.get("source_url", "")),
-        })
-
-    return format_table(
-        rows,
-        ["score", "id", "display_name", "concept_class", "source"],
-        ["Score", "ID", "Display Name", "Class", "Source"],
-    )
+    lines = []
+    for item in results:
+        row = item.get("row", {})
+        lines.append(f"\nQuery: {row.get('name', row)}")
+        matches = item.get("results", [])
+        if not matches:
+            lines.append("  No matches found.")
+            continue
+        for m in matches:
+            score = m.get("search_meta", {}).get("search_score", "?")
+            score_str = f"{score:.2f}" if isinstance(score, (int, float)) else str(score)
+            lines.append(
+                f"  [{score_str}] {m.get('id', '')} - {m.get('display_name', '')}"
+                f"  {m.get('url', '')}"
+            )
+    return "\n".join(lines)
 
 
 def format_cascade_results(data: dict, tree_view: bool = True, verbose: bool = False) -> str:

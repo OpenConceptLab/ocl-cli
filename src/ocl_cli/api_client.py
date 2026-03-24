@@ -1166,7 +1166,7 @@ class OCLAPIClient:
         params: dict[str, Any] = {"limit": limit, "page": page}
         if state:
             params["state"] = state
-        return self._normalize(self.get("/user/tasks/", params=params))
+        return self._normalize(self.get("/tasks/", params=params))
 
     def get_task(self, task_id: str) -> dict:
         """Get details of a specific task."""
