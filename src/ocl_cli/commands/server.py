@@ -78,3 +78,18 @@ def server_use(ctx, server_id):
         click.echo(f"Default server set to '{server_id}'")
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
+
+
+@server.command("reset")
+@click.option("--yes", "confirmed", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def server_reset(ctx, confirmed):
+    """Reset all server configuration to defaults.
+
+    Clears stored tokens, removes custom servers, and resets the default server.
+    """
+    if not confirmed:
+        click.confirm("Reset all server configuration to defaults? Stored tokens will be removed", abort=True)
+    config = ctx.obj["config"]
+    config.reset()
+    click.echo("Configuration reset to defaults.")

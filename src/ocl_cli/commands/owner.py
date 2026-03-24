@@ -1,5 +1,6 @@
-"""Owner commands: search, get, members."""
+"""Owner commands: search, get, members, create-org, delete-org."""
 
+import json as json_lib
 import sys
 
 import click
@@ -61,5 +62,53 @@ def members(ctx, org, limit):
             columns=["username", "name", "url"],
             headers=["Username", "Name", "URL"],
         ))
+    except APIError as e:
+        handle_api_error(e)
+
+
+@owner.command("create-org")
+@click.argument("org_id")
+@click.argument("name")
+@click.option("--company", help="Company name")
+@click.option("--website", help="Website URL")
+@click.option("--location", help="Location")
+@click.option("--public-access", "public_access",
+              type=click.Choice(["View", "Edit", "None"]), default="View",
+              help="Public access level")
+@click.option("--extras", help="Custom attributes as JSON string")
+@click.pass_context
+def create_org(ctx, org_id, name, company, website, location, public_access, extras):
+    """Create a new organization."""
+    client = ctx.obj["client"]
+    extras_dict = None
+    if extras:
+        try:
+            extras_dict = json_lib.loads(extras)
+        except json_lib.JSONDecodeError:
+            click.echo("Error: --extras must be valid JSON", err=True)
+            sys.exit(1)
+    try:
+        result = client.create_org(
+            org_id, name,
+            company=company, website=website, location=location,
+            public_access=public_access, extras=extras_dict,
+        )
+        output_result(ctx, result, format_owner_detail)
+    except APIError as e:
+        handle_api_error(e)
+
+
+@owner.command("delete-org")
+@click.argument("org_id")
+@click.option("--yes", "confirmed", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def delete_org(ctx, org_id, confirmed):
+    """Delete an organization. This is irreversible."""
+    if not confirmed:
+        click.confirm(f"Delete organization '{org_id}'? This cannot be undone", abort=True)
+    client = ctx.obj["client"]
+    try:
+        client.delete_org(org_id)
+        click.echo(f"Organization '{org_id}' deleted.")
     except APIError as e:
         handle_api_error(e)

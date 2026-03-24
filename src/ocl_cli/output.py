@@ -687,3 +687,77 @@ def format_server_list(servers: dict, default_server: str) -> str:
         ["marker", "id", "name", "url"],
         ["", "ID", "Name", "URL"],
     )
+
+
+def format_task_list(data: dict, verbose: bool = False) -> str:
+    """Format task list results."""
+    results = data.get("results", [])
+    if not results:
+        return "No tasks found."
+
+    if verbose:
+        display_rows = []
+        for t in results:
+            row = {
+                "id": str(t.get("id", "")),
+                "state": t.get("state", ""),
+                "name": t.get("name", t.get("task", "")),
+                "queue": t.get("queue", ""),
+                "started_at": str(t.get("started_at", ""))[:19],
+                "finished_at": str(t.get("finished_at", ""))[:19],
+                "runtime": _format_runtime(t.get("started_at"), t.get("finished_at")),
+                "message": str(t.get("result", t.get("summary", "")))[:60],
+            }
+            display_rows.append(row)
+        return format_table(
+            display_rows,
+            columns=["id", "state", "name", "queue", "started_at", "finished_at", "runtime", "message"],
+            headers=["ID", "State", "Name", "Queue", "Started", "Finished", "Runtime", "Message"],
+        )
+    else:
+        display_rows = []
+        for t in results:
+            display_rows.append({
+                "id": str(t.get("id", "")),
+                "state": t.get("state", ""),
+                "name": t.get("name", t.get("task", "")),
+                "updated_on": str(t.get("finished_at") or t.get("started_at") or "")[:19],
+            })
+        return format_table(
+            display_rows,
+            columns=["id", "state", "name", "updated_on"],
+            headers=["ID", "State", "Name", "Updated"],
+        )
+
+
+def _format_runtime(started: Any, finished: Any) -> str:
+    """Calculate runtime between two timestamp strings."""
+    if not started or not finished:
+        return ""
+    try:
+        from datetime import datetime
+        fmt = "%Y-%m-%dT%H:%M:%S"
+        s = str(started)[:19]
+        f = str(finished)[:19]
+        delta = datetime.fromisoformat(s) - datetime.fromisoformat(f)
+        seconds = abs(delta.total_seconds())
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        elif seconds < 3600:
+            return f"{seconds / 60:.1f}m"
+        else:
+            return f"{seconds / 3600:.1f}h"
+    except Exception:
+        return ""
+
+
+def format_task_detail(data: dict) -> str:
+    """Format a single task's details."""
+    lines = []
+    for key in ["id", "state", "name", "task", "queue",
+                 "started_at", "finished_at", "created_on",
+                 "result", "summary", "traceback"]:
+        val = data.get(key)
+        if val is not None and val != "":
+            lines.append(f"  {key}: {val}")
+    return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)

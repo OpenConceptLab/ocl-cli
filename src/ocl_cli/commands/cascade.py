@@ -4,7 +4,7 @@ import click
 
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
-from ocl_cli.output import output_result, format_cascade_results, format_cascade_hierarchy
+from ocl_cli.output import output_result, format_cascade_results
 
 
 @click.command("cascade")
@@ -54,21 +54,7 @@ def cascade_cmd(ctx, owner, repo, concept_id, owner_type, repo_type, version,
         result = client.cascade(
             owner, repo, concept_id, view=view, verbose=verbose, **cascade_kwargs,
         )
-        if view == "flat":
-            output_result(ctx, result, lambda d: format_cascade_results(d, root_id=concept_id, verbose=verbose))
-        else:
-            # Hierarchy view doesn't return concept_class/datatype even with verbose.
-            # Fetch flat+verbose as a lookup to enrich the tree nodes.
-            concept_details = {}
-            if verbose:
-                flat_result = client.cascade(
-                    owner, repo, concept_id, view="flat", verbose=True, **cascade_kwargs,
-                )
-                for e in flat_result.get("entry", []):
-                    if e.get("type") == "Concept" or "concept_class" in e:
-                        concept_details[str(e.get("id", ""))] = e
-            output_result(ctx, result, lambda d: format_cascade_hierarchy(
-                d, verbose=verbose, concept_details=concept_details,
-            ))
+        tree_view = view == "hierarchy"
+        output_result(ctx, result, lambda d: format_cascade_results(d, tree_view=tree_view, verbose=verbose))
     except APIError as e:
         handle_api_error(e)

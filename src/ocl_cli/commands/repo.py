@@ -266,3 +266,26 @@ def extra_del(ctx, owner, repo_name, key, repo_type, owner_type):
         click.echo(f"Deleted extra '{key}'")
     except APIError as e:
         handle_api_error(e)
+
+
+@repo.command("delete")
+@click.argument("owner")
+@click.argument("repo_name")
+@click.option("--type", "repo_type", type=click.Choice(["source", "collection"]), required=True,
+              help="Repository type")
+@click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.option("--yes", "confirmed", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def repo_delete(ctx, owner, repo_name, repo_type, owner_type, confirmed):
+    """Delete a repository. This is irreversible."""
+    if not confirmed:
+        click.confirm(
+            f"Delete {repo_type} '{owner}/{repo_name}'? This cannot be undone",
+            abort=True,
+        )
+    client = ctx.obj["client"]
+    try:
+        client.delete_repo(owner, repo_name, owner_type=owner_type, repo_type=repo_type)
+        click.echo(f"{repo_type.title()} '{owner}/{repo_name}' deleted.")
+    except APIError as e:
+        handle_api_error(e)

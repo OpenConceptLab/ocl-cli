@@ -1152,3 +1152,132 @@ class OCLAPIClient:
         """Remove a member from an organization."""
         self._require_auth()
         return self.delete(f"/orgs/{org}/members/{username}/")
+
+    # ── Task operations ─────────────────────────────────────────────
+
+    def list_tasks(
+        self,
+        state: Optional[str] = None,
+        limit: int = 20,
+        page: int = 1,
+    ) -> dict:
+        """List async tasks for the authenticated user."""
+        self._require_auth()
+        params: dict[str, Any] = {"limit": limit, "page": page}
+        if state:
+            params["state"] = state
+        return self._normalize(self.get("/user/tasks/", params=params))
+
+    def get_task(self, task_id: str) -> dict:
+        """Get details of a specific task."""
+        self._require_auth()
+        return self.get(f"/tasks/{task_id}/")
+
+    # ── Organization CRUD ───────────────────────────────────────────
+
+    def create_org(
+        self,
+        org_id: str,
+        name: str,
+        company: Optional[str] = None,
+        website: Optional[str] = None,
+        location: Optional[str] = None,
+        public_access: str = "View",
+        extras: Optional[dict] = None,
+    ) -> dict:
+        """Create a new organization."""
+        self._require_auth()
+        body: dict[str, Any] = {
+            "id": org_id,
+            "name": name,
+            "public_access": public_access,
+        }
+        if company:
+            body["company"] = company
+        if website:
+            body["website"] = website
+        if location:
+            body["location"] = location
+        if extras:
+            body["extras"] = extras
+        return self.post("/orgs/", json=body)
+
+    def delete_org(self, org: str) -> dict:
+        """Delete an organization."""
+        self._require_auth()
+        return self.delete(f"/orgs/{org}/")
+
+    # ── Repository delete ───────────────────────────────────────────
+
+    def delete_repo(
+        self,
+        owner: str,
+        repo: str,
+        owner_type: str = "orgs",
+        repo_type: str = "source",
+    ) -> dict:
+        """Delete a repository (source or collection)."""
+        self._require_auth()
+        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo)
+        return self.delete(endpoint)
+
+    # ── Bulk import ─────────────────────────────────────────────────
+
+    def bulk_import(self, lines: list[dict], update_if_exists: bool = True) -> dict:
+        """Submit a bulk import (JSON Lines format to /manage/bulkimport/)."""
+        self._require_auth()
+        if not lines:
+            return {"message": "no references"}
+        import json as _json
+        body = "\n".join(_json.dumps(item, ensure_ascii=False) for item in lines) + "\n"
+        params = {}
+        if update_if_exists:
+            params["update_if_exists"] = "true"
+        self._log_request("POST", "/manage/bulkimport/", params)
+        response = self.client.post(
+            "/manage/bulkimport/",
+            content=body.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            params=params,
+            timeout=120.0,
+        )
+        self._handle_error(response)
+        try:
+            return response.json()
+        except Exception:
+            return {"message": response.text}
+
+    def get_bulk_import_status(self) -> list:
+        """Get status of bulk import tasks."""
+        self._require_auth()
+        return self.get("/manage/bulkimport/")
+
+    # ── Cascade concept fetching (for pruning) ──────────────────────
+
+    def fetch_cascade_children(self, concept_url: str) -> set[str]:
+        """Fetch child concept URLs via cascade for a given concept expression."""
+        url = concept_url.rstrip("/") + "/cascade/"
+        params = {
+            "method": "sourcetoconcepts",
+            "cascadeHierarchy": "true",
+            "cascadeMappings": "true",
+            "cascadeLevels": "*",
+            "reverse": "false",
+            "includeRetired": "false",
+        }
+        try:
+            data = self.get(url, params=params)
+        except (APIError, Exception):
+            return set()
+        entries = data.get("entry") or []
+        if isinstance(entries, dict):
+            entries = [entries]
+        children: set[str] = set()
+        parent = concept_url.rstrip("/") + "/"
+        for entry in entries:
+            if not isinstance(entry, dict) or entry.get("type") != "Concept":
+                continue
+            child_url = entry.get("url", "").rstrip("/") + "/"
+            if child_url and child_url != parent:
+                children.add(child_url)
+        return children

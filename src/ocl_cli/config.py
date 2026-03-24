@@ -194,3 +194,12 @@ class CLIConfig:
             raise ValueError(f"Unknown server: {server_id}")
         self.default_server = server_id
         self.save()
+
+    def reset(self) -> None:
+        """Reset configuration to defaults: clear tokens, remove custom servers, reset default."""
+        self.default_server = DEFAULT_CONFIG["default_server"]
+        self.servers = {
+            k: {**v, "token": None}
+            for k, v in DEFAULT_CONFIG["servers"].items()
+        }
+        self.save()

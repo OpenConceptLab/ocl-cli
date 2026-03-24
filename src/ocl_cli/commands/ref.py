@@ -4,7 +4,7 @@ import click
 
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
-from ocl_cli.output import output_result, format_ref_list
+from ocl_cli.output import output_result, format_reference_list
 
 
 @click.group()
@@ -29,7 +29,7 @@ def ref_list(ctx, owner, collection, owner_type, version, limit, page):
             owner, collection, owner_type=owner_type,
             version=version, limit=limit, page=page,
         )
-        output_result(ctx, result, lambda d: format_ref_list(d, page, limit))
+        output_result(ctx, result, format_reference_list)
     except APIError as e:
         handle_api_error(e)
 

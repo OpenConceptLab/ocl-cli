@@ -78,6 +78,16 @@ cli.add_command(cascade_cmd)
 cli.add_command(ref)
 cli.add_command(expansion)
 
+# Phase 3: Task commands
+from ocl_cli.commands.task import task  # noqa: E402
+
+cli.add_command(task)
+
+# Operational tools
+from ocl_cli.commands.tool import tool  # noqa: E402
+
+cli.add_command(tool)
+
 # Utility commands
 from ocl_cli.commands.reference import reference  # noqa: E402
 
