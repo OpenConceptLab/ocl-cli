@@ -355,13 +355,15 @@ def extra_del(ctx, owner, source, concept_id, key, owner_type):
 @click.option("--target-owner", default="CIEL", help="Target source owner")
 @click.option("--target-version", help="Target source version")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.option("--concept-class", help="Filter results by concept class (e.g. Diagnosis, Procedure)")
+@click.option("--datatype", help="Filter results by datatype (e.g. Numeric, Coded)")
 @click.option("--limit", default=5, help="Matches per term")
 @click.option("--include-retired", is_flag=True)
 @click.option("--no-semantic", is_flag=True, help="Disable semantic matching (use keyword search only)")
 @click.option("--verbose", is_flag=True)
 @click.pass_context
 def match(ctx, terms, target_source, target_owner, target_version, owner_type,
-          limit, include_retired, no_semantic, verbose):
+          concept_class, datatype, limit, include_retired, no_semantic, verbose):
     """Match terms against concepts using the $match endpoint."""
     client = ctx.obj["client"]
     try:
@@ -372,6 +374,7 @@ def match(ctx, terms, target_source, target_owner, target_version, owner_type,
 
         result = client.match_concepts(
             terms=list(terms), target_repo_url=target_repo_url,
+            concept_class=concept_class, datatype=datatype,
             limit=limit, include_retired=include_retired,
             semantic=not no_semantic, verbose=verbose,
         )
