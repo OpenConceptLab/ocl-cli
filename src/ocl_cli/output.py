@@ -338,8 +338,8 @@ def format_mapping_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
 
         if verbose:
             row.update({
-                "from_name": mapping.get("from_concept_name", "")[:30] + ("..." if len(mapping.get("from_concept_name", "")) > 30 else ""),
-                "to_name": mapping.get("to_concept_name", "")[:30] + ("..." if len(mapping.get("to_concept_name", "")) > 30 else ""),
+                "from_name": (mapping.get("from_concept_name") or "")[:30] + ("..." if len(mapping.get("from_concept_name") or "") > 30 else ""),
+                "to_name": (mapping.get("to_concept_name") or "")[:30] + ("..." if len(mapping.get("to_concept_name") or "") > 30 else ""),
                 "to_source": _source_from_url(mapping.get("to_source_url", "")),
             })
 
