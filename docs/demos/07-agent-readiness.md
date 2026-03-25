@@ -20,7 +20,7 @@ ocl concept get CIEL CIEL 116128 --token BADTOKEN; echo "Exit: $?"  # 3 — auth
 
 ## 7.3 Command Reference for Agent Discovery
 ```bash
-ocl reference --json | python -c "import json,sys; d=json.load(sys.stdin); print(len(d['commands']), 'commands')"
+ocl reference --json | python -c "import json,sys; d=json.load(sys.stdin); print(len(d), 'commands')"
 ```
 
 ## 7.4 Debug Output for Troubleshooting

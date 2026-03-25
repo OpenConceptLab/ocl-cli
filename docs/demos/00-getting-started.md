@@ -8,7 +8,7 @@ ocl server list                                    # see defaults
 ocl server add staging https://api.staging.openconceptlab.org --name "OCL Staging"
 ocl server use staging                             # switch default
 ocl server list                                    # verify default marker
-ocl server use production                          # switch back
+ocl server use ocl-prod                            # switch back
 ocl server remove staging                          # clean up
 ```
 

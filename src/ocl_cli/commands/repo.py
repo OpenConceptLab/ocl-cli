@@ -178,7 +178,7 @@ def version_create(ctx, owner, repo_name, version_id, repo_type, owner_type, des
             owner, repo_name, version_id, owner_type=owner_type,
             repo_type=repo_type, description=description, released=released,
         )
-        output_result(ctx, result)
+        output_result(ctx, result, format_repo_detail)
     except APIError as e:
         handle_api_error(e)
 
@@ -208,7 +208,7 @@ def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, des
             owner, repo_name, version_id, owner_type=owner_type,
             repo_type=repo_type, **fields,
         )
-        output_result(ctx, result)
+        output_result(ctx, result, format_repo_detail)
     except APIError as e:
         handle_api_error(e)
 
