@@ -484,10 +484,20 @@ def format_match_results(data: dict) -> str:
         for m in matches:
             score = m.get("search_meta", {}).get("search_score", "?")
             score_str = f"{score:.2f}" if isinstance(score, (int, float)) else str(score)
-            lines.append(
+            line = (
                 f"  [{score_str}] {m.get('id', '')} - {m.get('display_name', '')}"
                 f"  {m.get('url', '')}"
             )
+            # Show mapping summary when --include-mappings is used
+            mappings = m.get("mappings", [])
+            if mappings:
+                sources = [_source_from_url(mp.get("to_source_url", "")) or mp.get("to_source_code", "?")
+                           for mp in mappings]
+                if len(sources) <= 3:
+                    line += f"  [{', '.join(sources)}]"
+                else:
+                    line += f"  [{', '.join(sources[:2])} +{len(sources) - 2} more]"
+            lines.append(line)
     return "\n".join(lines)
 
 
