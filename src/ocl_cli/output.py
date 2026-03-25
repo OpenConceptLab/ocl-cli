@@ -389,17 +389,19 @@ def format_version_list(data: dict) -> str:
 
     rows = []
     for version in results:
+        algos = version.get("match_algorithms", [])
         rows.append({
             "id": version.get("id", ""),
             "description": version.get("description", ""),
             "released": "Yes" if version.get("released") else "No",
-            "created": version.get("created_on", "")[:10] if version.get("created_on") else "",
+            "match": ", ".join(algos) if algos else "",
+            "created": version.get("created_at", "")[:10] if version.get("created_at") else "",
         })
 
     return format_table(
         rows,
-        ["id", "description", "released", "created"],
-        ["Version", "Description", "Released", "Created"],
+        ["id", "description", "released", "match", "created"],
+        ["Version", "Description", "Released", "Match Algos", "Created"],
     )
 
 

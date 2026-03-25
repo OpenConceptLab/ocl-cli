@@ -191,8 +191,9 @@ def version_create(ctx, owner, repo_name, version_id, repo_type, owner_type, des
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--description", help="Version description")
 @click.option("--released/--no-released", default=None, help="Released status")
+@click.option("--match-algorithms", default=None, help="Comma-separated match algorithms (e.g. es,llm)")
 @click.pass_context
-def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, description, released):
+def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, description, released, match_algorithms):
     """Update a repository version."""
     client = ctx.obj["client"]
     try:
@@ -201,6 +202,8 @@ def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, des
             fields["description"] = description
         if released is not None:
             fields["released"] = released
+        if match_algorithms is not None:
+            fields["match_algorithms"] = [a.strip() for a in match_algorithms.split(",")]
         result = client.update_repo_version(
             owner, repo_name, version_id, owner_type=owner_type,
             repo_type=repo_type, **fields,

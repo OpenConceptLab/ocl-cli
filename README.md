@@ -127,6 +127,10 @@ ocl repo versions OWNER REPO [--type source|collection]
 ocl repo create OWNER REPO_ID NAME --type source|collection [options]
 ocl repo update OWNER REPO [--name NAME] [--description DESC]
 ocl repo version-create OWNER REPO VERSION_ID [--released/--no-released]
+ocl repo version-update OWNER REPO VERSION_ID [--released/--no-released] [--match-algorithms es,llm]
+
+# Enable vectorized matching on a new release
+ocl repo version-update CIEL CIEL v2026-03-23 --match-algorithms es,llm
 
 # Custom attributes
 ocl repo extras OWNER REPO
