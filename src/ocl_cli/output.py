@@ -328,12 +328,10 @@ def format_mapping_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
 
     rows = []
     for mapping in results:
-        from_name = (mapping.get("from_concept_name") or "")[:30]
-        if len(mapping.get("from_concept_name") or "") > 30:
-            from_name += "..."
-        to_name = (mapping.get("to_concept_name") or "")[:30]
-        if len(mapping.get("to_concept_name") or "") > 30:
-            to_name += "..."
+        raw_from = mapping.get("from_concept_name") or mapping.get("from_concept_name_resolved") or ""
+        from_name = raw_from[:30] + ("..." if len(raw_from) > 30 else "")
+        raw_to = mapping.get("to_concept_name") or mapping.get("to_concept_name_resolved") or ""
+        to_name = raw_to[:30] + ("..." if len(raw_to) > 30 else "")
 
         row = {
             "id": mapping.get("id", ""),
