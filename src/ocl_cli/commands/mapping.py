@@ -23,17 +23,18 @@ def mapping():
 
 @mapping.command()
 @click.argument("query", required=False)
-@click.option("--owner", help="Filter by owner")
+@click.option("--owner", help="Mapping owner (org or user that owns the source containing the mapping)")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]))
-@click.option("--repo", help="Filter by source/collection")
+@click.option("--repo", help="Mapping repository (source or collection containing the mapping)")
 @click.option("--repo-type", type=click.Choice(["source", "collection"]), default="source")
 @click.option("--version", help="Repository version")
 @click.option("--map-type", help="Filter by map type (e.g. SAME-AS, NARROWER-THAN)")
-@click.option("--from-source", help="Filter by from source")
-@click.option("--from-concept", help="Filter by from concept code")
-@click.option("--to-source", help="Filter by to source")
-@click.option("--to-concept", help="Filter by to concept code")
-@click.option("--concept", help="Filter by concept (either from or to)")
+@click.option("--from-source", help="Filter by from-concept source name")
+@click.option("--from-concept", help="Filter by from-concept code")
+@click.option("--from-concept-owner", help="Filter by from-concept owner")
+@click.option("--to-source", help="Filter by to-concept source name")
+@click.option("--to-concept", help="Filter by to-concept code")
+@click.option("--to-concept-owner", help="Filter by to-concept owner")
 @click.option("--include-retired", is_flag=True)
 @click.option("--updated-since", help="Filter by update date")
 @click.option("--sort", help="Sort field")
@@ -42,16 +43,22 @@ def mapping():
 @click.option("--page", default=1)
 @click.pass_context
 def search(ctx, query, owner, owner_type, repo, repo_type, version, map_type,
-           from_source, from_concept, to_source, to_concept, concept,
-           include_retired, updated_since, sort, verbose, limit, page):
-    """Search for mappings globally or within a repository."""
+           from_source, from_concept, from_concept_owner, to_source, to_concept,
+           to_concept_owner, include_retired, updated_since, sort, verbose, limit, page):
+    """Search for mappings globally or within a repository.
+
+    Note: --owner/--repo scope the mapping's own source, not the from/to
+    concept sources. Use --from-source/--to-source to filter by concept source.
+    """
     client = ctx.obj["client"]
     try:
         result = client.search_mappings(
             query=query, owner=owner, owner_type=owner_type,
             repo=repo, repo_type=repo_type, version=version,
             map_type=map_type, from_source=from_source, from_concept=from_concept,
-            to_source=to_source, to_concept=to_concept, concept=concept,
+            from_concept_owner=from_concept_owner,
+            to_source=to_source, to_concept=to_concept,
+            to_concept_owner=to_concept_owner,
             include_retired=include_retired, updated_since=updated_since,
             sort=sort, verbose=verbose, limit=limit, page=page,
         )

@@ -449,9 +449,10 @@ class OCLAPIClient:
         map_type: Optional[str] = None,
         from_source: Optional[str] = None,
         from_concept: Optional[str] = None,
+        from_concept_owner: Optional[str] = None,
         to_source: Optional[str] = None,
         to_concept: Optional[str] = None,
-        concept: Optional[str] = None,
+        to_concept_owner: Optional[str] = None,
         include_retired: bool = False,
         updated_since: Optional[str] = None,
         sort: Optional[str] = None,
@@ -471,12 +472,14 @@ class OCLAPIClient:
             params["fromConceptSource"] = from_source
         if from_concept:
             params["fromConcept"] = from_concept
+        if from_concept_owner:
+            params["fromConceptOwner"] = from_concept_owner
         if to_source:
             params["toConceptSource"] = to_source
         if to_concept:
             params["toConcept"] = to_concept
-        if concept:
-            params["concept"] = concept
+        if to_concept_owner:
+            params["toConceptOwner"] = to_concept_owner
         if include_retired:
             params["includeRetired"] = "true"
         if updated_since:

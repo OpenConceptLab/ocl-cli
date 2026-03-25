@@ -328,29 +328,31 @@ def format_mapping_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
 
     rows = []
     for mapping in results:
+        from_name = (mapping.get("from_concept_name") or "")[:30]
+        if len(mapping.get("from_concept_name") or "") > 30:
+            from_name += "..."
+        to_name = (mapping.get("to_concept_name") or "")[:30]
+        if len(mapping.get("to_concept_name") or "") > 30:
+            to_name += "..."
+
         row = {
             "id": mapping.get("id", ""),
+            "from_source": _source_from_url(mapping.get("from_source_url", "")),
             "from_code": mapping.get("from_concept_code", ""),
-            "to_code": mapping.get("to_concept_code", ""),
+            "from_name": from_name,
             "map_type": mapping.get("map_type", ""),
-            "source": _source_from_url(mapping.get("source_url", "")),
+            "to_source": _source_from_url(mapping.get("to_source_url", "")),
+            "to_code": mapping.get("to_concept_code", ""),
+            "to_name": to_name,
         }
-
-        if verbose:
-            row.update({
-                "from_name": (mapping.get("from_concept_name") or "")[:30] + ("..." if len(mapping.get("from_concept_name") or "") > 30 else ""),
-                "to_name": (mapping.get("to_concept_name") or "")[:30] + ("..." if len(mapping.get("to_concept_name") or "") > 30 else ""),
-                "to_source": _source_from_url(mapping.get("to_source_url", "")),
-            })
-
         rows.append(row)
 
-    columns = ["id", "from_code", "to_code", "map_type", "source"]
-    headers = ["ID", "From Code", "To Code", "Map Type", "Source"]
+    columns = ["id", "from_source", "from_code", "map_type", "to_source", "to_code"]
+    headers = ["ID", "From Source", "From Code", "Map Type", "To Source", "To Code"]
 
     if verbose:
-        columns = ["id", "from_code", "from_name", "to_code", "to_name", "to_source", "map_type"]
-        headers = ["ID", "From Code", "From Name", "To Code", "To Name", "To Source", "Map Type"]
+        columns = ["id", "from_source", "from_code", "from_name", "map_type", "to_source", "to_code", "to_name"]
+        headers = ["ID", "From Source", "From Code", "From Name", "Map Type", "To Source", "To Code", "To Name"]
 
     table = format_table(rows, columns, headers)
     pagination = format_pagination(data, page, limit)

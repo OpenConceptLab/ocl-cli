@@ -165,8 +165,10 @@ ocl concept match TERM... --target-source SOURCE [--target-owner OWNER] [--targe
 ### Mappings
 
 ```bash
-# Search & browse
-ocl mapping search [QUERY] [--owner OWNER] [--source SOURCE] [--map-type TYPE]
+# Search & browse (--owner/--repo scope the mapping's source, not the concept sources)
+ocl mapping search [QUERY] [--owner OWNER] [--repo REPO] [--map-type TYPE]
+ocl mapping search --owner CIEL --repo CIEL --from-concept 138041 --verbose
+ocl mapping search --owner CIEL --repo CIEL --to-concept 116128
 ocl mapping get OWNER SOURCE MAPPING_ID [--version VERSION]
 ocl mapping versions OWNER SOURCE MAPPING_ID
 
