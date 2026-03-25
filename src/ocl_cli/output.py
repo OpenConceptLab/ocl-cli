@@ -493,7 +493,12 @@ def format_match_results(data: dict) -> str:
 
 def format_cascade_results(data: dict, tree_view: bool = True, verbose: bool = False) -> str:
     """Format cascade results with tree visualization."""
-    results = data.get("results", [])
+    # Hierarchy view returns entry (dict with nested entries), flat view returns results (list)
+    entry = data.get("entry")
+    if entry and isinstance(entry, dict):
+        results = [entry]
+    else:
+        results = data.get("results", [])
     if not results:
         return "No cascade results found."
 
@@ -540,8 +545,8 @@ def _format_cascade_tree(results: list, verbose: bool = False, level: int = 0, i
 
         lines.append(line)
 
-        # Recursively format children
-        children = item.get("cascade", [])
+        # Recursively format children (API uses "entries" for hierarchy view)
+        children = item.get("entries", [])
         if children:
             child_lines = _format_cascade_tree(children, verbose, level + 1, current_is_last)
             lines.append(child_lines)
@@ -568,8 +573,8 @@ def _format_cascade_table(results: list, verbose: bool = False) -> str:
 
             rows.append(row)
 
-            # Process children
-            children = item.get("cascade", [])
+            # Process children (API uses "entries" for hierarchy view)
+            children = item.get("entries", [])
             if children:
                 flatten_results(children, level + 1)
 

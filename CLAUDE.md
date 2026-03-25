@@ -48,3 +48,7 @@ pytest
 - `ocl-mcp` — MCP server for AI assistants (async, different interface)
 - `ocl-docs` — API documentation at docs.openconceptlab.org
 - `oclapi2` — The OCL API backend
+
+## Issues / Tickets
+
+- Issues for `ocl-cli` are tracked at https://gitea.lab.jpayne.md/ocl/ocl-cli. Use `tea` CLI by default, and direct API access to Gitea is also available. Note: this repo will transition to the OCL GitHub in the future.

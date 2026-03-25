@@ -913,7 +913,7 @@ class OCLAPIClient:
         """Set a custom attribute on a concept."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/extras/"
+        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/extras/{key}/"
         return self.put(endpoint, json={key: value})
 
     def delete_concept_extra(
@@ -1115,7 +1115,7 @@ class OCLAPIClient:
     ) -> dict:
         """Set a custom attribute on a repository."""
         self._require_auth()
-        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, suffix="extras/")
+        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, suffix=f"extras/{key}/")
         return self.put(endpoint, json={key: value})
 
     def delete_repo_extra(
