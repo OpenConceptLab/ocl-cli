@@ -603,6 +603,7 @@ class OCLAPIClient:
         datatype: Optional[str] = None,
         limit: int = 5,
         include_retired: bool = False,
+        include_mappings: bool = False,
         semantic: bool = True,
         verbose: bool = False,
     ) -> dict:
@@ -628,6 +629,8 @@ class OCLAPIClient:
             params["limit"] = limit
         if include_retired:
             params["includeRetired"] = True
+        if include_mappings:
+            params["includeMappings"] = True
         if verbose:
             params["verbose"] = True
 
