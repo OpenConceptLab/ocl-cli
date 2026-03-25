@@ -599,14 +599,24 @@ class OCLAPIClient:
         self,
         terms: list[str],
         target_repo_url: str,
+        concept_class: Optional[str] = None,
+        datatype: Optional[str] = None,
         limit: int = 5,
         include_retired: bool = False,
         semantic: bool = True,
         verbose: bool = False,
     ) -> dict:
         """Match concepts using the $match endpoint."""
+        rows = []
+        for term in terms:
+            row: dict[str, Any] = {"name": term}
+            if concept_class:
+                row["concept_class"] = concept_class
+            if datatype:
+                row["datatype"] = datatype
+            rows.append(row)
         body = {
-            "rows": [{"name": term} for term in terms],
+            "rows": rows,
             "target_repo_url": target_repo_url,
         }
         params: dict[str, Any] = {
