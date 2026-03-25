@@ -608,18 +608,18 @@ class OCLAPIClient:
         verbose: bool = False,
     ) -> dict:
         """Match concepts using the $match endpoint."""
-        rows = []
-        for term in terms:
-            row: dict[str, Any] = {"name": term}
-            if concept_class:
-                row["concept_class"] = concept_class
-            if datatype:
-                row["datatype"] = datatype
-            rows.append(row)
-        body = {
+        rows = [{"name": term} for term in terms]
+        body: dict[str, Any] = {
             "rows": rows,
             "target_repo_url": target_repo_url,
         }
+        filters: dict[str, Any] = {}
+        if concept_class:
+            filters["concept_class"] = concept_class
+        if datatype:
+            filters["datatype"] = datatype
+        if filters:
+            body["filter"] = filters
         params: dict[str, Any] = {
             "includeSearchMeta": True,
             "semantic": semantic,
