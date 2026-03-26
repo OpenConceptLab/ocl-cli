@@ -17,17 +17,17 @@ def ref():
 @click.argument("owner")
 @click.argument("collection")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
-@click.option("--version", help="Collection version")
+@click.option("--collection-version", help="Collection version")
 @click.option("--limit", default=20)
 @click.option("--page", default=1)
 @click.pass_context
-def ref_list(ctx, owner, collection, owner_type, version, limit, page):
+def ref_list(ctx, owner, collection, owner_type, collection_version, limit, page):
     """List references in a collection."""
     client = ctx.obj["client"]
     try:
         result = client.list_collection_refs(
             owner, collection, owner_type=owner_type,
-            version=version, limit=limit, page=page,
+            collection_version=collection_version, limit=limit, page=page,
         )
         output_result(ctx, result, format_reference_list)
     except APIError as e:

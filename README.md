@@ -124,7 +124,7 @@ Sources and collections are unified under `ocl repo` with a `--type` flag.
 ```bash
 # Browse
 ocl repo list [QUERY] [--owner OWNER] [--type source|collection|all]
-ocl repo get OWNER REPO [--type source|collection] [--version VERSION]
+ocl repo get OWNER REPO [--type source|collection] [--repo-version VERSION]
 ocl repo versions OWNER REPO [--type source|collection]
 
 # Create & update (requires auth)
@@ -147,7 +147,7 @@ ocl repo extra-del OWNER REPO KEY
 ```bash
 # Search & browse
 ocl concept search [QUERY] [--owner OWNER] [--repo REPO] [--concept-class CLASS]
-ocl concept get OWNER SOURCE CONCEPT_ID [--version VERSION] [--include-mappings] [--include-inverse-mappings]
+ocl concept get OWNER SOURCE CONCEPT_ID [--repo-version VERSION] [--include-mappings] [--include-inverse-mappings]
 ocl concept versions OWNER SOURCE CONCEPT_ID
 ocl concept names OWNER SOURCE CONCEPT_ID
 ocl concept descriptions OWNER SOURCE CONCEPT_ID
@@ -175,7 +175,7 @@ ocl concept match "malaria" "diabetes" --target-source CIEL --include-mappings -
 ocl mapping search [QUERY] [--owner OWNER] [--repo REPO] [--map-type TYPE]
 ocl mapping search --owner CIEL --repo CIEL --from-concept 138041 --verbose
 ocl mapping search --owner CIEL --repo CIEL --to-concept 116128
-ocl mapping get OWNER SOURCE MAPPING_ID [--version VERSION]
+ocl mapping get OWNER SOURCE MAPPING_ID [--repo-version VERSION]
 ocl mapping versions OWNER SOURCE MAPPING_ID
 
 # Create & update (requires auth)
@@ -189,13 +189,13 @@ ocl mapping retire OWNER SOURCE MAPPING_ID
 Navigate concept hierarchies and related mappings:
 
 ```bash
-ocl cascade OWNER REPO CONCEPT_ID [--version VERSION] [--levels N] [--reverse]
+ocl cascade OWNER REPO CONCEPT_ID [--repo-version VERSION] [--levels N] [--reverse]
 ```
 
 ### Collection References
 
 ```bash
-ocl ref list OWNER COLLECTION [--version VERSION]
+ocl ref list OWNER COLLECTION [--collection-version VERSION]
 ocl ref add OWNER COLLECTION EXPRESSION... [--cascade sourcemappings|sourcetoconcepts]
 ocl ref remove OWNER COLLECTION EXPRESSION...
 ```
@@ -204,7 +204,7 @@ ocl ref remove OWNER COLLECTION EXPRESSION...
 
 ```bash
 ocl expansion list OWNER COLLECTION VERSION
-ocl expansion get OWNER COLLECTION [--version VERSION] [--expansion-id ID]
+ocl expansion get OWNER COLLECTION [--collection-version VERSION] [--expansion-id ID]
 ocl expansion create OWNER COLLECTION VERSION
 ```
 
@@ -239,19 +239,19 @@ ocl -s ocl-qa concept search malaria
 
 ## Versioning
 
-OCL resources are versioned. Use `--version` to access specific versions:
+OCL resources are versioned. Use `--repo-version` (for sources/repos) or `--collection-version` (for collections) to access specific versions:
 
 ```bash
 # Get latest released version of a source
-ocl repo get CIEL CIEL --version latest
+ocl repo get CIEL CIEL --repo-version latest
 
 # Get a named version
-ocl repo get CIEL CIEL --version v2026-01-26
+ocl repo get CIEL CIEL --repo-version v2026-01-26
 
 # Get a concept as it existed in a specific source version
-ocl concept get CIEL CIEL 116128 --version v2026-01-26
+ocl concept get CIEL CIEL 116128 --repo-version v2026-01-26
 
-# Omit --version to get HEAD (working draft)
+# Omit --repo-version to get HEAD (working draft)
 ocl concept get CIEL CIEL 116128
 ```
 

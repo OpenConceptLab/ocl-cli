@@ -20,7 +20,7 @@ ocl concept create <OWNER> demo-source DEMO-001 --concept-class Diagnosis --name
 ocl concept create <OWNER> demo-source DEMO-002 --concept-class Procedure --name "Demo Concept B"
 ocl repo version-create <OWNER> demo-source v1.0 --description "Initial release"
 ocl repo versions <OWNER> demo-source                  # verify version exists
-ocl repo get <OWNER> demo-source --version v1.0        # inspect versioned snapshot
+ocl repo get <OWNER> demo-source --repo-version v1.0    # inspect versioned snapshot
 ```
 
 ## 3.3 Manage Repository Extras

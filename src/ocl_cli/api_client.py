@@ -698,15 +698,15 @@ class OCLAPIClient:
         owner: str,
         collection: str,
         owner_type: str = "orgs",
-        version: Optional[str] = None,
+        collection_version: Optional[str] = None,
         limit: int = 20,
         page: int = 1,
     ) -> dict:
         """List references in a collection."""
         _validate_owner_type(owner_type)
         base = f"/{owner_type}/{owner}/collections/{collection}"
-        if version:
-            base = f"{base}/{version}"
+        if collection_version:
+            base = f"{base}/{collection_version}"
         endpoint = f"{base}/references/"
         return self._normalize(self.get(endpoint, params={"limit": limit, "page": page}))
 

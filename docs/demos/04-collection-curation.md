@@ -27,7 +27,7 @@ ocl ref list <OWNER> demo-collection                   # verify removal
 ```bash
 ocl repo version-create <OWNER> demo-collection v1.0 --type collection --description "First cut"
 ocl expansion list <OWNER> demo-collection v1.0        # list expansions
-ocl expansion get <OWNER> demo-collection --version v1.0  # get default expansion details
+ocl expansion get <OWNER> demo-collection --collection-version v1.0  # get default expansion details
 ```
 
 **Validates:** collection create, ref add/remove/list with cascade, version-create, expansion list/get.

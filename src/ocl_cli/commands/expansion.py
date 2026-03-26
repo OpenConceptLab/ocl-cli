@@ -33,16 +33,16 @@ def expansion_list(ctx, owner, collection, version, owner_type):
 @click.argument("owner")
 @click.argument("collection")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
-@click.option("--version", help="Collection version")
+@click.option("--collection-version", help="Collection version")
 @click.option("--expansion-id", help="Specific expansion ID")
 @click.pass_context
-def get(ctx, owner, collection, owner_type, version, expansion_id):
+def get(ctx, owner, collection, owner_type, collection_version, expansion_id):
     """Get a specific or default expansion for a collection."""
     client = ctx.obj["client"]
     try:
         result = client.get_expansion(
             owner, collection, owner_type=owner_type,
-            collection_version=version, expansion_id=expansion_id,
+            collection_version=collection_version, expansion_id=expansion_id,
         )
         output_result(ctx, result)
     except APIError as e:
