@@ -2,6 +2,7 @@
 
 **Date:** 2026-03-25
 **Status:** Planning
+**Ticket:** [ocl/ocl-cli:#52 - Remaining CLI feature gaps (export, bulk import, FHIR ops, match expansion)](https://gitea.lab.jpayne.me/ocl/ocl-cli/issues/52)
 
 ## Where We Are
 

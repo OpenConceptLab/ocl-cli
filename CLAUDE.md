@@ -26,8 +26,11 @@ pip install -e ".[dev]"
 - Default `repo_type` is `"all"` for search/list, required for targeted operations.
 - `--json` / `-j` global flag outputs raw API JSON (unmodified) for agent consumption.
 - `--debug` / `-d` global flag shows HTTP requests on stderr.
+- `--show-request` global flag shows server URL and API request paths on stderr (cleaner than `--debug`).
 - `--verbose` per-command flag on search/list commands passes `?verbose=true` to the OCL API, which returns full details (names, descriptions, extras) instead of summary. Default is summary (no verbose).
+- Version parameters are type-specific: `--repo-version` for sources/repos, `--collection-version` for collections, `--concept-version` for concept versions. Never use a bare `--version` for these.
 - Exit codes: 0=success, 1=client error (4xx), 2=server error (5xx), 3=auth error.
+- **When changing command arguments or flags**, always update `README.md` and `docs/demos/` to match.
 
 ## Running
 
