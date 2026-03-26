@@ -159,12 +159,30 @@ Lower priority — fill in missing operations for completeness.
 ocl concept clone OWNER SOURCE CONCEPT_ID --to-source DEST_SOURCE [--cascade]
 ```
 
-#### 5d. URL Registry
+#### 5d. Expansion Creation
+```bash
+ocl expansion create OWNER COLLECTION VERSION [--filter TEXT] [--count N] [--offset N]
+```
+Currently only `expansion list` and `expansion get` exist. The create/trigger operation is missing.
+
+#### 5e. URL Registry
 ```bash
 ocl url-registry list [--owner OWNER]
 ocl url-registry lookup URL [--namespace NAMESPACE]
 ocl url-registry create --url URL --repo-url REPO_URL
 ```
+
+#### 5f. Mapping Suggest & Bulk Map
+The original plan included AI-powered mapping operations:
+- `mapping suggest TERMS... --target-source SRC` — AI mapping suggestions
+- `mapping bulk-map --input FILE --target-source SRC` — bulk mapping from file
+
+These depend on whether the API supports dedicated suggest/bulk-map endpoints beyond `$match`. Investigate API surface before implementing.
+
+#### 5g. CLI Ergonomics
+- `--all` flag for auto-pagination (fetch all pages automatically)
+- Shell completions via Click's built-in support (`ocl --install-completion`)
+- Pipe detection: auto-enable `--json` when stdout is not a TTY
 
 **Demo scenario:** Add to existing Themes 02/03 for name/description management; new Theme for org membership and URL registry.
 
@@ -180,7 +198,7 @@ Each phase should add demo coverage. Proposed new themes:
 | 2 | **Theme 09: Bulk Import** — create import file, submit, verify |
 | 3 | Expand Theme 05 with additional match filter scenarios |
 | 4 | **Theme 10: FHIR Operations** — translate, lookup, validate, expand |
-| 5 | Expand Themes 02/03 with name/description update/delete, org membership |
+| 5 | Expand Themes 02–04 with name/desc update/delete, expansion create, org membership; expand Theme 07 with auto-pagination and pipe detection |
 
 ## Sequencing Summary
 
