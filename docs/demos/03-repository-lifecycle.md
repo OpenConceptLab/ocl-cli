@@ -44,4 +44,45 @@ ocl owner delete-org demo-org --yes                   # clean up
 ocl owner get demo-org                                # verify 404
 ```
 
-**Validates:** repo create/update/get, version-create/update, extras, versions with released filter, org create/delete.
+## 3.6 Version Exports
+
+Full export lifecycle — check availability, trigger creation, download, and clean up.
+
+```bash
+# 1. Check if an export is available for the demo version
+ocl repo export status <OWNER> demo-source v1.0 --type source
+#    → "No export exists" (newly created version)
+
+# 2. Trigger export creation
+ocl repo export create <OWNER> demo-source v1.0 --type source
+#    → "Export creation started"
+
+# 3. Poll status until ready (may take a few seconds)
+ocl repo export status <OWNER> demo-source v1.0 --type source
+#    → "Export is currently being generated" or "Export is ready for download"
+
+# 4. Check status with JSON output (useful for scripting)
+ocl repo export status <OWNER> demo-source v1.0 --type source -j
+#    → {"status": "ready", "status_code": 200, "filename": "..."}
+
+# 5. Download the export to a local file
+ocl repo export download <OWNER> demo-source v1.0 --type source -o demo-export.zip
+#    → "Saved to demo-export.zip (N bytes)"
+
+# 6. Delete the cached export
+ocl repo export delete <OWNER> demo-source v1.0 --type source
+#    → "Export deleted."
+
+# 7. Verify it's gone
+ocl repo export status <OWNER> demo-source v1.0 --type source
+#    → "No export exists"
+```
+
+### Export with a real-world collection
+```bash
+# Works the same way for collections — just use --type collection
+ocl repo export status MSF-OCB Aswan Aswan-V2-26 --type collection
+ocl repo export download MSF-OCB Aswan Aswan-V2-26 --type collection -o aswan-export.zip
+```
+
+**Validates:** repo create/update/get, version-create/update, extras, versions with released filter, org create/delete, export status/create/download/delete.

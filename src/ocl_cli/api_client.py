@@ -195,6 +195,29 @@ class OCLAPIClient:
             return {}
         return response.json()
 
+    def request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[dict] = None,
+        json: Optional[dict] = None,
+        follow_redirects: bool = False,
+        timeout: Optional[float] = None,
+    ) -> httpx.Response:
+        """Low-level request returning the raw httpx.Response.
+
+        Unlike get/post/delete, this does NOT call _handle_error().
+        Callers are responsible for interpreting status codes.
+        Used for APIs with non-standard status code semantics (e.g. exports).
+        """
+        self._log_request(method, endpoint, params, body=json)
+        kwargs: dict[str, Any] = {"params": params, "follow_redirects": follow_redirects}
+        if json is not None:
+            kwargs["json"] = json
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        return self.client.request(method, endpoint, **kwargs)
+
     # ── Helpers ──────────────────────────────────────────────────────
 
     def _normalize(self, response: Any) -> dict:
@@ -1308,3 +1331,124 @@ class OCLAPIClient:
             if child_url and child_url != parent:
                 children.add(child_url)
         return children
+
+    # ── Exports ──────────────────────────────────────────────────────
+
+    def _export_endpoint(
+        self, owner: str, repo: str, version: str,
+        owner_type: str, repo_type: str,
+    ) -> str:
+        return _build_repo_endpoint(
+            owner_type, owner, repo_type, repo, version, "export/"
+        )
+
+    def export_status(
+        self,
+        owner: str,
+        repo: str,
+        version: str,
+        owner_type: str = "orgs",
+        repo_type: str = "source",
+    ) -> dict:
+        """Check export status for a repository version via HEAD request."""
+        self._require_auth()
+        endpoint = self._export_endpoint(owner, repo, version, owner_type, repo_type)
+        response = self.request("HEAD", endpoint, timeout=45.0)
+        code = response.status_code
+        if code == 200:
+            filename = ""
+            cd = response.headers.get("content-disposition", "")
+            if "filename=" in cd:
+                filename = cd.split("filename=", 1)[1].strip().strip('"')
+            return {"status": "ready", "status_code": 200, "filename": filename}
+        elif code == 204:
+            return {"status": "not_found", "status_code": 204}
+        elif code == 208:
+            return {"status": "processing", "status_code": 208}
+        elif code == 404:
+            raise APIError("Repository version not found", status_code=404)
+        else:
+            self._handle_error(response)
+            return {"status": "unknown", "status_code": code}
+
+    def export_create(
+        self,
+        owner: str,
+        repo: str,
+        version: str,
+        owner_type: str = "orgs",
+        repo_type: str = "source",
+    ) -> dict:
+        """Trigger export creation for a repository version."""
+        self._require_auth()
+        endpoint = self._export_endpoint(owner, repo, version, owner_type, repo_type)
+        response = self.request("POST", endpoint, timeout=45.0)
+        code = response.status_code
+        if code == 202:
+            return {"status": "accepted", "status_code": 202,
+                    "message": "Export creation started"}
+        elif code in (200, 303):
+            return {"status": "already_exists", "status_code": code,
+                    "message": "Export already exists"}
+        elif code == 409:
+            return {"status": "conflict", "status_code": 409,
+                    "message": "Export is already being processed"}
+        else:
+            self._handle_error(response)
+            return {"status": "unknown", "status_code": code}
+
+    def export_delete(
+        self,
+        owner: str,
+        repo: str,
+        version: str,
+        owner_type: str = "orgs",
+        repo_type: str = "source",
+    ) -> dict:
+        """Delete an export for a repository version."""
+        self._require_auth()
+        endpoint = self._export_endpoint(owner, repo, version, owner_type, repo_type)
+        response = self.request("DELETE", endpoint, timeout=30.0)
+        if response.status_code == 204:
+            return {"status": "deleted", "status_code": 204}
+        elif response.status_code == 404:
+            raise APIError("Export not found", status_code=404)
+        else:
+            self._handle_error(response)
+            return {"status": "unknown", "status_code": response.status_code}
+
+    def export_download(
+        self,
+        owner: str,
+        repo: str,
+        version: str,
+        owner_type: str = "orgs",
+        repo_type: str = "source",
+    ) -> httpx.Response:
+        """Download an export file. Returns the streaming response.
+
+        The response has Content-Type: application/zip and a
+        Content-Disposition header with the filename.
+        Caller should consume and close the response.
+        """
+        self._require_auth()
+        endpoint = self._export_endpoint(owner, repo, version, owner_type, repo_type)
+        response = self.request("GET", endpoint, timeout=300.0)
+        code = response.status_code
+        if code == 200:
+            return response
+        elif code == 204:
+            raise APIError(
+                "Export does not exist. Use 'ocl repo export create' first.",
+                status_code=204,
+            )
+        elif code == 208:
+            raise APIError(
+                "Export is still being processed. Try again shortly.",
+                status_code=208,
+            )
+        elif code == 404:
+            raise APIError("Repository version not found", status_code=404)
+        else:
+            self._handle_error(response)
+            raise APIError(f"Unexpected status {code}", status_code=code)

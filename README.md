@@ -140,6 +140,32 @@ ocl repo version-update CIEL CIEL v2026-03-23 --match-algorithms es,llm
 ocl repo extras OWNER REPO
 ocl repo extra-set OWNER REPO KEY VALUE
 ocl repo extra-del OWNER REPO KEY
+
+```
+
+### Exports
+
+Manage cached ZIP exports of repository versions (sources and collections). Exports contain the full JSON representation of a version — metadata, concepts, mappings, and references.
+
+```bash
+# Check if an export is available
+ocl repo export status OWNER REPO VERSION --type source|collection
+
+# Trigger export creation (if not already cached)
+ocl repo export create OWNER REPO VERSION --type source|collection
+
+# Download to a local file
+ocl repo export download OWNER REPO VERSION --type source|collection -o FILENAME
+
+# Delete a cached export
+ocl repo export delete OWNER REPO VERSION --type source|collection
+```
+
+Example — download the latest CIEL release export:
+
+```bash
+ocl repo export status CIEL CIEL v2026-03-23 --type source
+ocl repo export download CIEL CIEL v2026-03-23 --type source -o CIEL_v2026-03-23.zip
 ```
 
 ### Concepts

@@ -1,4 +1,4 @@
-"""Repository commands: list, get, create, update, versions, extras."""
+"""Repository commands: list, get, create, update, versions, extras, export."""
 
 import json as json_lib
 import sys
@@ -292,3 +292,9 @@ def repo_delete(ctx, owner, repo_name, repo_type, owner_type, confirmed):
         click.echo(f"{repo_type.title()} '{owner}/{repo_name}' deleted.")
     except APIError as e:
         handle_api_error(e)
+
+
+# Register export subgroup
+from ocl_cli.commands.export import export  # noqa: E402
+
+repo.add_command(export)

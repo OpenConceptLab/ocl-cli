@@ -779,3 +779,23 @@ def format_task_detail(data: dict) -> str:
         if val is not None and val != "":
             lines.append(f"  {key}: {val}")
     return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)
+
+
+def format_export_status(data: dict) -> str:
+    """Format export status for human output."""
+    status = data.get("status", "unknown")
+    messages = {
+        "ready": "Export is ready for download.",
+        "not_found": "No export exists. Use 'ocl repo export create' to generate one.",
+        "processing": "Export is currently being generated. Try again shortly.",
+        "accepted": "Export creation started. Check status with 'ocl repo export status'.",
+        "already_exists": "Export already exists. Use 'ocl repo export download' to retrieve it.",
+        "conflict": "Export is already being processed. Try again shortly.",
+        "deleted": "Export deleted.",
+    }
+    line = messages.get(status, f"Status: {status}")
+    if data.get("filename"):
+        line += f"\n  Filename: {data['filename']}"
+    if data.get("location"):
+        line += f"\n  Location: {data['location']}"
+    return line
