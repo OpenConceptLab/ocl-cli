@@ -184,7 +184,7 @@ Lower priority — fill in missing operations for completeness.
 
 #### 5b. User & Org Command Refactor (#5, #6, #7) — **Done**
 
-- ~~Implement `ocl user` command group: `user list`, `user get`, `user orgs` (#5)~~
+- ~~Implement `ocl user` command group: `user list`, `user get`, `user repos`, `user orgs` (#5)~~
 - ~~Implement `ocl org` command group: `org list`, `org get`, `org create`, `org delete`, `org members`, `org repos`, `org add-member`, `org remove-member` (#6)~~
 - ~~Remove `ocl owner` command group (#7)~~
 
