@@ -43,13 +43,13 @@ ocl owner search WHO
 ocl repo list --owner CIEL --type source
 
 # Search for concepts
-ocl concept search malaria --owner CIEL --source CIEL
+ocl concept search malaria --owner CIEL --repo CIEL
 
-# Get a specific concept
-ocl concept get CIEL CIEL 116128
+# Get a specific concept with its cross-terminology mappings
+ocl concept get CIEL CIEL 116128 --include-mappings
 
-# Search for mappings
-ocl mapping search --owner CIEL --source CIEL --from-concept 116128
+# Search for mappings (--owner/--repo scope the mapping's source)
+ocl mapping search --owner CIEL --repo CIEL --to-concept 116128
 ```
 
 ### 2. Authenticate for write operations
@@ -82,7 +82,7 @@ ocl whoami
 Use the `-j` flag (before the subcommand) for machine-readable JSON output:
 
 ```bash
-ocl -j concept search malaria --owner CIEL --source CIEL
+ocl -j concept search malaria --owner CIEL --repo CIEL
 ocl -j concept get CIEL CIEL 116128
 ```
 
@@ -92,13 +92,13 @@ Search/list commands return a **summary** by default (compact, fast). Use `--ver
 
 ```bash
 # Summary (default)
-ocl concept search malaria --owner CIEL --source CIEL
+ocl concept search malaria --owner CIEL --repo CIEL
 
 # Verbose — more columns, more data from API
-ocl concept search malaria --owner CIEL --source CIEL --verbose
+ocl concept search malaria --owner CIEL --repo CIEL --verbose
 
 # Debug — show HTTP requests on stderr
-ocl -d concept search malaria --owner CIEL --source CIEL
+ocl -d concept search malaria --owner CIEL --repo CIEL
 ```
 
 The `--verbose` flag controls the OCL API's `?verbose=true` parameter. With `-j`, it returns more fields in the JSON response.
@@ -111,6 +111,10 @@ The `--verbose` flag controls the OCL API's `?verbose=true` parameter. With `-j`
 ocl owner search [QUERY] [--owner-type users|orgs|all]
 ocl owner get OWNER [--owner-type users|orgs]
 ocl owner members ORG
+
+# Organization management (requires auth)
+ocl owner create-org ORG_ID NAME
+ocl owner delete-org ORG_ID [--yes]
 ```
 
 ### Repositories (sources & collections)
@@ -142,8 +146,8 @@ ocl repo extra-del OWNER REPO KEY
 
 ```bash
 # Search & browse
-ocl concept search [QUERY] [--owner OWNER] [--source SOURCE] [--concept-class CLASS]
-ocl concept get OWNER SOURCE CONCEPT_ID [--version VERSION] [--concept-version CVER]
+ocl concept search [QUERY] [--owner OWNER] [--repo REPO] [--concept-class CLASS]
+ocl concept get OWNER SOURCE CONCEPT_ID [--version VERSION] [--include-mappings] [--include-inverse-mappings]
 ocl concept versions OWNER SOURCE CONCEPT_ID
 ocl concept names OWNER SOURCE CONCEPT_ID
 ocl concept descriptions OWNER SOURCE CONCEPT_ID
@@ -159,7 +163,9 @@ ocl concept extra-set OWNER SOURCE CONCEPT_ID KEY VALUE
 ocl concept extra-del OWNER SOURCE CONCEPT_ID KEY
 
 # Intelligent matching
-ocl concept match TERM... --target-source SOURCE [--target-owner OWNER] [--target-version VER]
+ocl concept match TERM... --target-source SOURCE [--target-owner OWNER] [--limit N]
+ocl concept match "glucose" --target-source CIEL --concept-class Diagnosis --limit 5
+ocl concept match "malaria" "diabetes" --target-source CIEL --include-mappings --limit 1
 ```
 
 ### Mappings
@@ -200,6 +206,15 @@ ocl ref remove OWNER COLLECTION EXPRESSION...
 ocl expansion list OWNER COLLECTION VERSION
 ocl expansion get OWNER COLLECTION [--version VERSION] [--expansion-id ID]
 ocl expansion create OWNER COLLECTION VERSION
+```
+
+### Task Management
+
+Monitor async operations on the server:
+
+```bash
+ocl task list [--state SUCCESS|FAILURE|PENDING|STARTED] [--verbose]
+ocl task get TASK_ID
 ```
 
 ### Server Management
@@ -261,6 +276,7 @@ Config is stored at `~/.ocl/config.json`. It's created automatically on first us
 
 The CLI is designed for use by AI agents via subprocess calls. Key features:
 
+- **`ocl reference --json`** dumps the full command tree in one call — all commands, args, options
 - **`-j` flag** outputs structured JSON on stdout
 - **Exit codes**: 0 = success, 1 = client error, 2 = server error, 3 = auth error
 - **Errors go to stderr**, data goes to stdout
@@ -270,7 +286,7 @@ Example agent usage:
 
 ```bash
 # Search and parse results
-ocl -j concept search "diabetes" --owner CIEL --source CIEL --limit 10
+ocl -j concept search "diabetes" --owner CIEL --repo CIEL --limit 10
 
 # Get a specific concept
 ocl -j concept get CIEL CIEL 116128
