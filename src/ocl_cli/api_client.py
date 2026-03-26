@@ -292,6 +292,19 @@ class OCLAPIClient:
         """Get a specific user by username."""
         return self.get(f"/users/{username}/")
 
+    def list_user_repos(
+        self,
+        username: str,
+        repo_type: str = "all",
+        limit: int = 20,
+        page: int = 1,
+    ) -> dict:
+        """List repositories owned by a user."""
+        params: dict[str, Any] = {"limit": limit, "page": page}
+        if repo_type != "all":
+            params["repoType"] = "Source" if repo_type == "source" else "Collection"
+        return self._normalize(self.get(f"/users/{username}/repos/", params=params))
+
     def list_user_orgs(self, username: str, limit: int = 100) -> dict:
         """List organizations a user belongs to."""
         return self._normalize(self.get(f"/users/{username}/orgs/", params={"limit": limit}))

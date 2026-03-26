@@ -1,4 +1,4 @@
-"""User commands: list, get, orgs."""
+"""User commands: list, get, orgs, repos."""
 
 import click
 
@@ -6,7 +6,7 @@ from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
 from ocl_cli.output import (
     output_result, format_user_list, format_user_detail,
-    format_org_list,
+    format_org_list, format_repo_list,
 )
 
 
@@ -41,6 +41,23 @@ def get(ctx, username):
     try:
         result = client.get_user_detail(username)
         output_result(ctx, result, format_user_detail)
+    except APIError as e:
+        handle_api_error(e)
+
+
+@user.command()
+@click.argument("username")
+@click.option("--type", "repo_type", type=click.Choice(["source", "collection", "all"]), default="all",
+              help="Repository type")
+@click.option("--limit", default=20, help="Results per page")
+@click.option("--page", default=1, help="Page number")
+@click.pass_context
+def repos(ctx, username, repo_type, limit, page):
+    """List repositories owned by a user."""
+    client = ctx.obj["client"]
+    try:
+        result = client.list_user_repos(username, repo_type=repo_type, limit=limit, page=page)
+        output_result(ctx, result, format_repo_list)
     except APIError as e:
         handle_api_error(e)
 

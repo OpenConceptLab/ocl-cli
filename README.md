@@ -125,6 +125,7 @@ ocl org remove-member ORG USERNAME [--yes]
 ```bash
 ocl user list [QUERY] [--verbose] [--limit N] [--page N]
 ocl user get USERNAME
+ocl user repos USERNAME [--type source|collection|all] [--limit N] [--page N]
 ocl user orgs USERNAME [--limit N]
 ```
 
