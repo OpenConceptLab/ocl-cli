@@ -38,10 +38,10 @@ ocl repo versions <OWNER> demo-source --released true  # filter released version
 
 ## 3.5 Organization CRUD
 ```bash
-ocl owner create-org demo-org "Demo Organization"
-ocl owner get demo-org                                # verify creation
-ocl owner delete-org demo-org --yes                   # clean up
-ocl owner get demo-org                                # verify 404
+ocl org create demo-org "Demo Organization"
+ocl org get demo-org                                  # verify creation
+ocl org delete demo-org --yes                         # clean up
+ocl org get demo-org                                  # verify 404
 ```
 
 ## 3.6 Version Exports

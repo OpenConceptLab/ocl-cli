@@ -64,7 +64,8 @@ cli.add_command(whoami)
 cli.add_command(server)
 
 # Phase 2: Read commands
-from ocl_cli.commands.owner import owner  # noqa: E402
+from ocl_cli.commands.org import org  # noqa: E402
+from ocl_cli.commands.user import user  # noqa: E402
 from ocl_cli.commands.repo import repo  # noqa: E402
 from ocl_cli.commands.concept import concept  # noqa: E402
 from ocl_cli.commands.mapping import mapping  # noqa: E402
@@ -72,7 +73,8 @@ from ocl_cli.commands.cascade import cascade_cmd  # noqa: E402
 from ocl_cli.commands.ref import ref  # noqa: E402
 from ocl_cli.commands.expansion import expansion  # noqa: E402
 
-cli.add_command(owner)
+cli.add_command(org)
+cli.add_command(user)
 cli.add_command(repo)
 cli.add_command(concept)
 cli.add_command(mapping)

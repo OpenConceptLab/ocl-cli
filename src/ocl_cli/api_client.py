@@ -237,33 +237,64 @@ class OCLAPIClient:
         self._require_auth()
         return self.get("/user/")
 
-    def search_owners(
+    # ── Organization operations ────────────────────────────────────
+
+    def list_orgs(
         self,
         query: Optional[str] = None,
-        owner_type: str = "all",
-        limit: int = 20,
+        verbose: bool = False,
+        limit: int = 25,
         page: int = 1,
     ) -> dict:
-        """Search for users and organizations."""
-        if owner_type not in ("users", "orgs", "all"):
-            raise ValueError("owner_type must be 'users', 'orgs', or 'all'")
-
-        results = {}
+        """List/search organizations."""
         params: dict[str, Any] = {"limit": limit, "page": page}
         if query:
             params["q"] = query
+        if verbose:
+            params["verbose"] = True
+        return self._normalize(self.get("/orgs/", params=params))
 
-        if owner_type in ("users", "all"):
-            results["users"] = self._normalize(self.get("/users/", params=params))
-        if owner_type in ("orgs", "all"):
-            results["organizations"] = self._normalize(self.get("/orgs/", params=params))
+    def get_org(self, org: str) -> dict:
+        """Get a specific organization."""
+        return self.get(f"/orgs/{org}/")
 
-        return results
+    def list_org_repos(
+        self,
+        org: str,
+        repo_type: str = "all",
+        limit: int = 20,
+        page: int = 1,
+    ) -> dict:
+        """List repositories owned by an organization."""
+        params: dict[str, Any] = {"limit": limit, "page": page}
+        if repo_type != "all":
+            params["repoType"] = "Source" if repo_type == "source" else "Collection"
+        return self._normalize(self.get(f"/orgs/{org}/repos/", params=params))
 
-    def get_owner(self, owner: str, owner_type: str = "orgs") -> dict:
-        """Get a specific user or org."""
-        _validate_owner_type(owner_type)
-        return self.get(f"/{owner_type}/{owner}/")
+    # ── User operations ──────────────────────────────────────────
+
+    def list_users(
+        self,
+        query: Optional[str] = None,
+        verbose: bool = False,
+        limit: int = 25,
+        page: int = 1,
+    ) -> dict:
+        """List/search users."""
+        params: dict[str, Any] = {"limit": limit, "page": page}
+        if query:
+            params["q"] = query
+        if verbose:
+            params["verbose"] = True
+        return self._normalize(self.get("/users/", params=params))
+
+    def get_user_detail(self, username: str) -> dict:
+        """Get a specific user by username."""
+        return self.get(f"/users/{username}/")
+
+    def list_user_orgs(self, username: str, limit: int = 100) -> dict:
+        """List organizations a user belongs to."""
+        return self._normalize(self.get(f"/users/{username}/orgs/", params={"limit": limit}))
 
     def get_org_members(self, org: str, limit: int = 100) -> dict:
         """List members of an organization."""

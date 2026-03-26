@@ -37,7 +37,7 @@ Many OCL resources are public. You can search and browse without logging in:
 
 ```bash
 # Search for organizations
-ocl owner search WHO
+ocl org list WHO
 
 # Search for sources
 ocl repo list --owner CIEL --type source
@@ -105,16 +105,27 @@ The `--verbose` flag controls the OCL API's `?verbose=true` parameter. With `-j`
 
 ## Commands
 
-### Owners (users & organizations)
+### Organizations
 
 ```bash
-ocl owner search [QUERY] [--owner-type users|orgs|all]
-ocl owner get OWNER [--owner-type users|orgs]
-ocl owner members ORG
+ocl org list [QUERY] [--verbose] [--limit N] [--page N]
+ocl org get ORG
+ocl org members ORG [--limit N]
+ocl org repos ORG [--type source|collection|all] [--limit N] [--page N]
 
 # Organization management (requires auth)
-ocl owner create-org ORG_ID NAME
-ocl owner delete-org ORG_ID [--yes]
+ocl org create ORG_ID NAME [--company ...] [--website ...] [--location ...] [--public-access View|Edit|None]
+ocl org delete ORG_ID [--yes]
+ocl org add-member ORG USERNAME
+ocl org remove-member ORG USERNAME [--yes]
+```
+
+### Users
+
+```bash
+ocl user list [QUERY] [--verbose] [--limit N] [--page N]
+ocl user get USERNAME
+ocl user orgs USERNAME [--limit N]
 ```
 
 ### Repositories (sources & collections)

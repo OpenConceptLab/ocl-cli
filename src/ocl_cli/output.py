@@ -97,41 +97,42 @@ def format_pagination(data: dict, page: int = 1, limit: int = 20) -> str:
 # ── Resource-specific formatters ─────────────────────────────────
 
 
-def format_owner_list(data: dict) -> str:
-    """Format owner search results."""
+def format_org_list(data: dict) -> str:
+    """Format organization search results."""
     results = data.get("results", [])
     if not results:
-        return "No owners found."
+        return "No organizations found."
 
     rows = []
-    for owner in results:
+    for org in results:
         rows.append({
-            "id": owner.get("id", ""),
-            "name": owner.get("name", ""),
-            "type": owner.get("type", ""),
-            "public_repos": owner.get("public_sources", 0) + owner.get("public_collections", 0),
-            "location": owner.get("location", ""),
+            "id": org.get("id", ""),
+            "name": org.get("name", ""),
+            "members": org.get("members", 0),
+            "public_sources": org.get("public_sources", 0),
+            "public_collections": org.get("public_collections", 0),
+            "location": org.get("location", ""),
         })
 
     table = format_table(
         rows,
-        ["id", "name", "type", "public_repos", "location"],
-        ["ID", "Name", "Type", "Public Repos", "Location"],
+        ["id", "name", "members", "public_sources", "public_collections", "location"],
+        ["ID", "Name", "Members", "Sources", "Collections", "Location"],
     )
 
     pagination = format_pagination(data)
     return f"{table}\n\n{pagination}" if pagination else table
 
 
-def format_owner_detail(data: dict) -> str:
-    """Format single owner details."""
+def format_org_detail(data: dict) -> str:
+    """Format single organization details."""
     lines = []
     lines.append(f"ID: {data.get('id', '')}")
     lines.append(f"Name: {data.get('name', '')}")
-    lines.append(f"Type: {data.get('type', '')}")
     lines.append(f"Company: {data.get('company', '')}")
     lines.append(f"Location: {data.get('location', '')}")
     lines.append(f"Website: {data.get('website', '')}")
+    lines.append(f"Members: {data.get('members', 0)}")
     lines.append(f"Public Sources: {data.get('public_sources', 0)}")
     lines.append(f"Public Collections: {data.get('public_collections', 0)}")
     lines.append(f"Created: {data.get('created_on', '')}")
@@ -143,6 +144,50 @@ def format_owner_detail(data: dict) -> str:
             lines.append(f"  {key}: {value}")
 
     return "\n".join(lines)
+
+
+def format_member_list(data: dict) -> str:
+    """Format organization member list."""
+    results = data.get("results", [])
+    if not results:
+        return "No members found."
+
+    return format_table(
+        results,
+        columns=["username", "name", "url"],
+        headers=["Username", "Name", "URL"],
+    )
+
+
+def format_user_list(data: dict) -> str:
+    """Format user search results."""
+    results = data.get("results", [])
+    if not results:
+        return "No users found."
+
+    rows = []
+    for user in results:
+        name = user.get("name", "").strip()
+        if not name:
+            first = user.get("first_name", "").strip()
+            last = user.get("last_name", "").strip()
+            name = f"{first} {last}".strip()
+        rows.append({
+            "username": user.get("username", ""),
+            "name": name,
+            "company": user.get("company", ""),
+            "date_joined": user.get("date_joined", ""),
+            "public_sources": user.get("public_sources", 0),
+        })
+
+    table = format_table(
+        rows,
+        ["username", "name", "company", "date_joined", "public_sources"],
+        ["Username", "Name", "Company", "Joined", "Sources"],
+    )
+
+    pagination = format_pagination(data)
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def format_repo_list(data: dict, verbose: bool = False) -> str:

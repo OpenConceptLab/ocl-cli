@@ -7,7 +7,7 @@ Multi-step CLI scenarios that exercise real-world workflows against the producti
 **Scenario:** Profile the CIEL organization, browse its repositories, then deep-dive on a single concept — translations, description, and cross-terminology mappings.
 
 **Steps:**
-1. `ocl owner get CIEL` — org profile
+1. `ocl org get CIEL` — org profile
 2. `ocl repo list --owner CIEL` — sources and collections
 3. `ocl concept search malaria --owner CIEL --repo CIEL` — find a concept
 4. `ocl concept names CIEL CIEL 116128` — all translations (11 names across 9 languages)
