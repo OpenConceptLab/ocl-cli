@@ -51,15 +51,15 @@ def _build_repo_endpoint(
     owner: str,
     repo_type: str,
     repo: str,
-    version: Optional[str] = None,
+    repo_version: Optional[str] = None,
     suffix: str = "",
 ) -> str:
     """Build a repository-scoped endpoint URL."""
     _validate_owner_type(owner_type)
     stem = _repo_type_stem(repo_type)
     base = f"/{owner_type}/{owner}/{stem}/{repo}"
-    if version:
-        base = f"{base}/{version}"
+    if repo_version:
+        base = f"{base}/{repo_version}"
     return f"{base}/{suffix}" if suffix else f"{base}/"
 
 
@@ -72,6 +72,8 @@ class OCLAPIClient:
         self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         self.token = token
         self.debug = False
+        self.show_request = False
+        self._show_request_server_printed = False
 
         headers = {
             "Accept": "application/json",
@@ -107,6 +109,15 @@ class OCLAPIClient:
             if body is not None:
                 import json as _json
                 print(f"  Body: {_json.dumps(body, default=str)}", file=sys.stderr)
+        if self.show_request:
+            if not self._show_request_server_printed:
+                print(f"Server: {self.base_url}", file=sys.stderr)
+                self._show_request_server_printed = True
+            url = endpoint
+            if params:
+                from urllib.parse import urlencode
+                url = f"{url}?{urlencode(params, doseq=True)}"
+            print(f"  → {method} {url}", file=sys.stderr)
 
     def _handle_error(self, response: httpx.Response) -> None:
         """Convert HTTP errors to APIError."""
@@ -266,10 +277,10 @@ class OCLAPIClient:
         repo: str,
         owner_type: str = "orgs",
         repo_type: str = "source",
-        version: Optional[str] = None,
+        repo_version: Optional[str] = None,
     ) -> dict:
         """Get a specific repository, optionally at a version."""
-        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, version)
+        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, repo_version)
         return self.get(endpoint)
 
     def get_repo_versions(
@@ -299,7 +310,7 @@ class OCLAPIClient:
         owner_type: Optional[str] = None,
         repo_type: Optional[str] = None,
         repo: Optional[str] = None,
-        version: Optional[str] = None,
+        repo_version: Optional[str] = None,
         concept_class: Optional[str] = None,
         datatype: Optional[str] = None,
         locale: Optional[str] = None,
@@ -344,13 +355,13 @@ class OCLAPIClient:
         # Determine endpoint scope
         if all([owner_type, owner, repo_type, repo]):
             endpoint = _build_repo_endpoint(
-                owner_type, owner, repo_type, repo, version, suffix="concepts/"
+                owner_type, owner, repo_type, repo, repo_version, suffix="concepts/"
             )
         elif owner and repo:
             # Assume orgs/source if not specified
             ot = owner_type or "orgs"
             rt = repo_type or "source"
-            endpoint = _build_repo_endpoint(ot, owner, rt, repo, version, suffix="concepts/")
+            endpoint = _build_repo_endpoint(ot, owner, rt, repo, repo_version, suffix="concepts/")
         else:
             endpoint = "/concepts/"
 
@@ -362,7 +373,7 @@ class OCLAPIClient:
         source: str,
         concept_id: str,
         owner_type: str = "orgs",
-        version: Optional[str] = None,
+        repo_version: Optional[str] = None,
         concept_version: Optional[str] = None,
         include_mappings: bool = False,
         include_inverse_mappings: bool = False,
@@ -372,8 +383,8 @@ class OCLAPIClient:
         _validate_owner_type(owner_type)
         stem = _repo_type_stem("source")
         base = f"/{owner_type}/{owner}/{stem}/{source}"
-        if version:
-            base = f"{base}/{version}"
+        if repo_version:
+            base = f"{base}/{repo_version}"
         endpoint = f"{base}/concepts/{concept_id}/"
         if concept_version:
             endpoint = f"{base}/concepts/{concept_id}/{concept_version}/"
@@ -445,7 +456,7 @@ class OCLAPIClient:
         owner_type: Optional[str] = None,
         repo_type: Optional[str] = None,
         repo: Optional[str] = None,
-        version: Optional[str] = None,
+        repo_version: Optional[str] = None,
         map_type: Optional[str] = None,
         from_source: Optional[str] = None,
         from_concept: Optional[str] = None,
@@ -495,12 +506,12 @@ class OCLAPIClient:
 
         if all([owner_type, owner, repo_type, repo]):
             endpoint = _build_repo_endpoint(
-                owner_type, owner, repo_type, repo, version, suffix="mappings/"
+                owner_type, owner, repo_type, repo, repo_version, suffix="mappings/"
             )
         elif owner and repo:
             ot = owner_type or "orgs"
             rt = repo_type or "source"
-            endpoint = _build_repo_endpoint(ot, owner, rt, repo, version, suffix="mappings/")
+            endpoint = _build_repo_endpoint(ot, owner, rt, repo, repo_version, suffix="mappings/")
         else:
             endpoint = "/mappings/"
 
@@ -512,13 +523,13 @@ class OCLAPIClient:
         source: str,
         mapping_id: str,
         owner_type: str = "orgs",
-        version: Optional[str] = None,
+        repo_version: Optional[str] = None,
     ) -> dict:
         """Get a single mapping."""
         _validate_owner_type(owner_type)
         base = f"/{owner_type}/{owner}/sources/{source}"
-        if version:
-            base = f"{base}/{version}"
+        if repo_version:
+            base = f"{base}/{repo_version}"
         return self.get(f"{base}/mappings/{mapping_id}/")
 
     def get_mapping_versions(
@@ -542,7 +553,7 @@ class OCLAPIClient:
         concept_id: str,
         owner_type: str = "orgs",
         repo_type: str = "source",
-        version: Optional[str] = None,
+        repo_version: Optional[str] = None,
         map_types: Optional[list[str]] = None,
         exclude_map_types: Optional[list[str]] = None,
         return_map_types: Optional[list[str]] = None,
@@ -558,7 +569,7 @@ class OCLAPIClient:
     ) -> dict:
         """Execute $cascade operation on a concept."""
         endpoint = _build_repo_endpoint(
-            owner_type, owner, repo_type, repo, version,
+            owner_type, owner, repo_type, repo, repo_version,
             suffix=f"concepts/{concept_id}/$cascade/"
         )
 

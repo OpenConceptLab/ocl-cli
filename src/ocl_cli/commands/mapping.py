@@ -27,7 +27,7 @@ def mapping():
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]))
 @click.option("--repo", help="Mapping repository (source or collection containing the mapping)")
 @click.option("--repo-type", type=click.Choice(["source", "collection"]), default="source")
-@click.option("--version", help="Repository version")
+@click.option("--repo-version", help="Repository version")
 @click.option("--map-type", help="Filter by map type (e.g. SAME-AS, NARROWER-THAN)")
 @click.option("--from-source", help="Filter by from-concept source name")
 @click.option("--from-concept", help="Filter by from-concept code")
@@ -42,7 +42,7 @@ def mapping():
 @click.option("--limit", default=20)
 @click.option("--page", default=1)
 @click.pass_context
-def search(ctx, query, owner, owner_type, repo, repo_type, version, map_type,
+def search(ctx, query, owner, owner_type, repo, repo_type, repo_version, map_type,
            from_source, from_concept, from_concept_owner, to_source, to_concept,
            to_concept_owner, include_retired, updated_since, sort, verbose, limit, page):
     """Search for mappings globally or within a repository.
@@ -54,7 +54,7 @@ def search(ctx, query, owner, owner_type, repo, repo_type, version, map_type,
     try:
         result = client.search_mappings(
             query=query, owner=owner, owner_type=owner_type,
-            repo=repo, repo_type=repo_type, version=version,
+            repo=repo, repo_type=repo_type, repo_version=repo_version,
             map_type=map_type, from_source=from_source, from_concept=from_concept,
             from_concept_owner=from_concept_owner,
             to_source=to_source, to_concept=to_concept,
@@ -72,14 +72,14 @@ def search(ctx, query, owner, owner_type, repo, repo_type, version, map_type,
 @click.argument("source")
 @click.argument("mapping_id")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
-@click.option("--version", help="Source version")
+@click.option("--repo-version", help="Source version")
 @click.pass_context
-def get(ctx, owner, source, mapping_id, owner_type, version):
+def get(ctx, owner, source, mapping_id, owner_type, repo_version):
     """Get a single mapping."""
     client = ctx.obj["client"]
     try:
         result = client.get_mapping(owner, source, mapping_id,
-                                     owner_type=owner_type, version=version)
+                                     owner_type=owner_type, repo_version=repo_version)
         output_result(ctx, result, format_mapping_detail)
     except APIError as e:
         handle_api_error(e)

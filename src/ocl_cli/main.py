@@ -18,9 +18,10 @@ from ocl_cli.output import output_error
 @click.option("--server", "-s", "server_id", help="OCL server to use")
 @click.option("--token", help="API token override")
 @click.option("--debug", "-d", is_flag=True, help="Debug output (show HTTP requests on stderr)")
+@click.option("--show-request", is_flag=True, help="Show server URL and API requests on stderr")
 @click.version_option(version=__version__, prog_name="ocl")
 @click.pass_context
-def cli(ctx, json_output, server_id, token, debug):
+def cli(ctx, json_output, server_id, token, debug, show_request):
     """OCL CLI - Command-line interface for the Open Concept Lab API."""
     ctx.ensure_object(dict)
 
@@ -30,6 +31,7 @@ def cli(ctx, json_output, server_id, token, debug):
 
     client = OCLAPIClient(base_url=server.base_url, token=resolved_token)
     client.debug = debug
+    client.show_request = show_request
 
     ctx.obj["json_output"] = json_output
     ctx.obj["config"] = config

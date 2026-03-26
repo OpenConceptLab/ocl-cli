@@ -29,7 +29,7 @@ def concept():
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]))
 @click.option("--repo", help="Filter by source/collection")
 @click.option("--repo-type", type=click.Choice(["source", "collection"]), default="source")
-@click.option("--version", help="Repository version")
+@click.option("--repo-version", help="Repository version")
 @click.option("--concept-class", help="Filter by concept class")
 @click.option("--datatype", help="Filter by datatype")
 @click.option("--locale", help="Filter by locale")
@@ -42,7 +42,7 @@ def concept():
 @click.option("--limit", default=20, help="Results per page")
 @click.option("--page", default=1, help="Page number")
 @click.pass_context
-def search(ctx, query, owner, owner_type, repo, repo_type, version, concept_class,
+def search(ctx, query, owner, owner_type, repo, repo_type, repo_version, concept_class,
            datatype, locale, include_retired, include_mappings, include_inverse_mappings,
            updated_since, sort, verbose, limit, page):
     """Search for concepts globally or within a repository."""
@@ -50,7 +50,7 @@ def search(ctx, query, owner, owner_type, repo, repo_type, version, concept_clas
     try:
         result = client.search_concepts(
             query=query, owner=owner, owner_type=owner_type,
-            repo=repo, repo_type=repo_type, version=version,
+            repo=repo, repo_type=repo_type, repo_version=repo_version,
             concept_class=concept_class, datatype=datatype, locale=locale,
             include_retired=include_retired, include_mappings=include_mappings,
             include_inverse_mappings=include_inverse_mappings,
@@ -67,20 +67,20 @@ def search(ctx, query, owner, owner_type, repo, repo_type, version, concept_clas
 @click.argument("source")
 @click.argument("concept_id")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
-@click.option("--version", help="Source version")
+@click.option("--repo-version", help="Source version")
 @click.option("--concept-version", help="Specific concept version")
 @click.option("--include-mappings", is_flag=True)
 @click.option("--include-inverse-mappings", is_flag=True)
 @click.option("--verbose", is_flag=True)
 @click.pass_context
-def get(ctx, owner, source, concept_id, owner_type, version, concept_version,
+def get(ctx, owner, source, concept_id, owner_type, repo_version, concept_version,
         include_mappings, include_inverse_mappings, verbose):
     """Get a single concept."""
     client = ctx.obj["client"]
     try:
         result = client.get_concept(
             owner, source, concept_id, owner_type=owner_type,
-            version=version, concept_version=concept_version,
+            repo_version=repo_version, concept_version=concept_version,
             include_mappings=include_mappings,
             include_inverse_mappings=include_inverse_mappings,
             verbose=verbose,

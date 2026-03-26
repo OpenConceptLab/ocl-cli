@@ -48,15 +48,15 @@ def repo_list(ctx, query, owner, owner_type, repo_type, verbose, limit, page):
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--type", "repo_type", type=click.Choice(["source", "collection"]), default="source",
               help="Repository type")
-@click.option("--version", help="Repository version (omit for HEAD, use 'latest' for latest released)")
+@click.option("--repo-version", help="Repository version (omit for HEAD, use 'latest' for latest released)")
 @click.pass_context
-def get(ctx, owner, repo_name, owner_type, repo_type, version):
+def get(ctx, owner, repo_name, owner_type, repo_type, repo_version):
     """Get details for a specific repository."""
     client = ctx.obj["client"]
     try:
         result = client.get_repo(
             owner, repo_name, owner_type=owner_type,
-            repo_type=repo_type, version=version,
+            repo_type=repo_type, repo_version=repo_version,
         )
         output_result(ctx, result, format_repo_detail)
     except APIError as e:
