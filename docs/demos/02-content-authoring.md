@@ -43,7 +43,9 @@ ocl concept get <OWNER> <SOURCE> TEST-001              # verify class changed
 ocl concept versions <OWNER> <SOURCE> TEST-001          # see version history
 ocl concept retire <OWNER> <SOURCE> TEST-002 --update-comment "Duplicate"
 ocl concept get <OWNER> <SOURCE> TEST-002              # verify retired=True
+ocl mapping update <OWNER> <SOURCE> <MAPPING_ID> --map-type NARROWER-THAN
+ocl mapping get <OWNER> <SOURCE> <MAPPING_ID>          # verify map type changed
 ocl mapping retire <OWNER> <SOURCE> <MAPPING_ID> --update-comment "Source concept retired"
 ```
 
-**Validates:** concept create/update/retire, name-add, description-add, extra-set/del, mapping create/retire, versions.
+**Validates:** concept create/update/retire, name-add, description-add, extra-set/del, mapping create/update/retire, versions.

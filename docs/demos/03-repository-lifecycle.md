@@ -36,4 +36,12 @@ ocl repo version-update <OWNER> demo-source v1.0 --description "Initial release 
 ocl repo versions <OWNER> demo-source --released true  # filter released versions
 ```
 
-**Validates:** repo create/update/get, version-create/update, extras, versions with released filter.
+## 3.5 Organization CRUD
+```bash
+ocl owner create-org demo-org "Demo Organization"
+ocl owner get demo-org                                # verify creation
+ocl owner delete-org demo-org --yes                   # clean up
+ocl owner get demo-org                                # verify 404
+```
+
+**Validates:** repo create/update/get, version-create/update, extras, versions with released filter, org create/delete.
