@@ -133,9 +133,9 @@ Sources and collections are unified under `ocl repo` with a `--type` flag.
 
 ```bash
 # Browse
-ocl repo list [QUERY] [--owner OWNER] [--type source|collection|all] [--verbose]
+ocl repo list [QUERY] [--owner OWNER] [--type source|collection|all] [--custom-validation-schema SCHEMA] [--updated-since YYYY-MM-DD] [--all-versions] [--verbose]
 ocl repo get OWNER REPO [--type source|collection] [--repo-version VERSION]
-ocl repo versions OWNER REPO [--type source|collection]
+ocl repo versions OWNER REPO [--type source|collection] [--updated-since YYYY-MM-DD]
 
 # Create & update
 ocl repo create OWNER REPO_ID NAME --type source|collection [options]
@@ -333,6 +333,31 @@ OCL_API_TOKEN=xxx ocl -j mapping create MYORG MYSOURCE \
   --from-concept-url /orgs/CIEL/sources/CIEL/concepts/116128/ \
   --to-concept-url /orgs/WHO/sources/ICD-10-WHO/concepts/B54/
 ```
+
+## Advanced: Real-World Queries with jq
+
+The CLI's `--json` output pairs naturally with `jq` for ad-hoc analytics that would otherwise require direct database access.
+
+### Example: OpenMRS repo activity report
+
+Count source versions, collection versions, distinct orgs, and distinct users with OpenMRS Validation Schema repos updated in the last 6 months ([ocl_issues#2032](https://github.com/OpenConceptLab/ocl_issues/issues/2032)):
+
+```bash
+ocl -j repo list --custom-validation-schema OpenMRS --updated-since 2025-09-27 \
+  --all-versions --limit 500 \
+| jq '{
+  source_versions: [.results[] | select(.repo_type == "Source")] | length,
+  collection_versions: [.results[] | select(.repo_type == "Collection")] | length,
+  organizations: [.results[] | select(.owner_type == "Organization") | .owner] | unique | length,
+  users: [.results[] | select(.owner_type == "User") | .owner] | unique | length
+}'
+```
+
+Key flags used:
+- `--custom-validation-schema OpenMRS` — server-side filter via Elasticsearch
+- `--updated-since 2025-09-27` — only repos updated in the last 6 months
+- `--all-versions` — return one row per repo version (not just HEAD), so version counts are direct
+- `-j` (before subcommand) — structured JSON output for piping to `jq`
 
 ## Requirements
 

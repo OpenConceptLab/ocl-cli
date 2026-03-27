@@ -25,17 +25,23 @@ def repo():
 @click.option("--owner-type", type=click.Choice(["users", "orgs", "all"]), default="all")
 @click.option("--type", "repo_type", type=click.Choice(["source", "collection", "all"]), default="all",
               help="Repository type")
+@click.option("--custom-validation-schema", help="Filter by validation schema (e.g. OpenMRS)")
+@click.option("--updated-since", help="Filter by update date (YYYY-MM-DD)")
+@click.option("--all-versions", is_flag=True, help="Include all repo versions, not just HEAD")
 @click.option("--verbose", is_flag=True, help="Include full details in results")
 @click.option("--limit", default=20, help="Results per page")
 @click.option("--page", default=1, help="Page number")
 @click.pass_context
-def repo_list(ctx, query, owner, owner_type, repo_type, verbose, limit, page):
+def repo_list(ctx, query, owner, owner_type, repo_type, custom_validation_schema,
+              updated_since, all_versions, verbose, limit, page):
     """Search for repositories (sources and collections)."""
     client = ctx.obj["client"]
     try:
         result = client.search_repos(
             query=query, owner=owner, owner_type=owner_type,
-            repo_type=repo_type, verbose=verbose, limit=limit, page=page,
+            repo_type=repo_type, custom_validation_schema=custom_validation_schema,
+            updated_since=updated_since, all_versions=all_versions,
+            verbose=verbose, limit=limit, page=page,
         )
         output_result(ctx, result, lambda d: format_repo_list(d, page=page, limit=limit, verbose=verbose))
     except APIError as e:
@@ -69,16 +75,17 @@ def get(ctx, owner, repo_name, owner_type, repo_type, repo_version):
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--type", "repo_type", type=click.Choice(["source", "collection"]), default="source")
 @click.option("--released", type=bool, default=None, help="Filter by released status")
+@click.option("--updated-since", help="Filter by update date (YYYY-MM-DD)")
 @click.option("--limit", default=20, help="Results per page")
 @click.option("--page", default=1, help="Page number")
 @click.pass_context
-def versions(ctx, owner, repo_name, owner_type, repo_type, released, limit, page):
+def versions(ctx, owner, repo_name, owner_type, repo_type, released, updated_since, limit, page):
     """List versions for a repository."""
     client = ctx.obj["client"]
     try:
         result = client.get_repo_versions(
             owner, repo_name, owner_type=owner_type, repo_type=repo_type,
-            released=released, limit=limit, page=page,
+            released=released, updated_since=updated_since, limit=limit, page=page,
         )
         output_result(ctx, result, lambda d: format_version_list(d, page=page, limit=limit))
     except APIError as e:

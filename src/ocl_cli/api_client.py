@@ -344,6 +344,9 @@ class OCLAPIClient:
         owner: Optional[str] = None,
         owner_type: str = "all",
         repo_type: str = "all",
+        custom_validation_schema: Optional[str] = None,
+        updated_since: Optional[str] = None,
+        all_versions: bool = False,
         verbose: bool = False,
         limit: int = 20,
         page: int = 1,
@@ -356,6 +359,12 @@ class OCLAPIClient:
             params["q"] = query
         if repo_type != "all":
             params["repoType"] = "Source" if repo_type == "source" else "Collection"
+        if custom_validation_schema:
+            params["customValidationSchema"] = custom_validation_schema
+        if updated_since:
+            params["updatedSince"] = updated_since
+        if all_versions:
+            params["allVersions"] = "true"
 
         # Use scoped endpoint when owner is specified
         if owner and owner_type and owner_type != "all":
@@ -392,6 +401,7 @@ class OCLAPIClient:
         repo_type: str = "source",
         released: Optional[bool] = None,
         processing: Optional[bool] = None,
+        updated_since: Optional[str] = None,
         limit: int = 20,
         page: int = 1,
     ) -> dict:
@@ -402,6 +412,8 @@ class OCLAPIClient:
             params["released"] = str(released).lower()
         if processing is not None:
             params["processing"] = str(processing).lower()
+        if updated_since:
+            params["updatedSince"] = updated_since
         return self._get_list(endpoint, params=params)
 
     def search_concepts(
