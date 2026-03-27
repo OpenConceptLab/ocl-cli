@@ -4,10 +4,13 @@ Adapted from ocl-mcp's async client. Uses httpx.Client (sync) with retry logic.
 Business logic lives here so it can be reused by future MCP server wrappers.
 """
 
+import platform
 import sys
 from typing import Any, Optional
 
 import httpx
+
+from ocl_cli import __version__
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -78,6 +81,8 @@ class OCLAPIClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
+            "X-OCL-CLIENT": f"ocl-cli/{__version__}",
+            "User-Agent": f"ocl-cli/{__version__} (httpx/{httpx.__version__}; python/{platform.python_version()})",
         }
         if self.token:
             headers["Authorization"] = f"Token {self.token}"
