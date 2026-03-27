@@ -27,7 +27,7 @@ def user_list(ctx, query, verbose, limit, page):
     client = ctx.obj["client"]
     try:
         result = client.list_users(query=query, verbose=verbose, limit=limit, page=page)
-        output_result(ctx, result, format_user_list)
+        output_result(ctx, result, lambda d: format_user_list(d, page=page, limit=limit, verbose=verbose))
     except APIError as e:
         handle_api_error(e)
 
@@ -49,15 +49,16 @@ def get(ctx, username):
 @click.argument("username")
 @click.option("--type", "repo_type", type=click.Choice(["source", "collection", "all"]), default="all",
               help="Repository type")
+@click.option("--verbose", is_flag=True, help="Include full details in results")
 @click.option("--limit", default=20, help="Results per page")
 @click.option("--page", default=1, help="Page number")
 @click.pass_context
-def repos(ctx, username, repo_type, limit, page):
+def repos(ctx, username, repo_type, verbose, limit, page):
     """List repositories owned by a user."""
     client = ctx.obj["client"]
     try:
         result = client.list_user_repos(username, repo_type=repo_type, limit=limit, page=page)
-        output_result(ctx, result, format_repo_list)
+        output_result(ctx, result, lambda d: format_repo_list(d, page=page, limit=limit, verbose=verbose))
     except APIError as e:
         handle_api_error(e)
 

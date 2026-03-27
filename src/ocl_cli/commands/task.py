@@ -29,7 +29,7 @@ def task_list(ctx, state, limit, page, verbose):
     client = ctx.obj["client"]
     try:
         result = client.list_tasks(state=state, limit=limit, page=page)
-        output_result(ctx, result, lambda d: format_task_list(d, verbose=verbose))
+        output_result(ctx, result, lambda d: format_task_list(d, page=page, limit=limit, verbose=verbose))
     except APIError as e:
         handle_api_error(e)
 

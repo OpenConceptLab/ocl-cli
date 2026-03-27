@@ -15,7 +15,7 @@ ocl -j concept match "malaria" --target-source CIEL --limit 1 | python -m json.t
 ```bash
 ocl concept get CIEL CIEL 116128; echo "Exit: $?"          # 0 — success
 ocl concept get CIEL CIEL NONEXISTENT; echo "Exit: $?"     # 1 — 404 client error
-ocl concept get CIEL CIEL 116128 --token BADTOKEN; echo "Exit: $?"  # 3 — auth error
+ocl --token BADTOKEN concept get CIEL CIEL 116128; echo "Exit: $?"  # 3 — auth error
 ```
 
 ## 7.3 Command Reference for Agent Discovery

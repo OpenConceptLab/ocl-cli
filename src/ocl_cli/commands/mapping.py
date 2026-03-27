@@ -99,7 +99,7 @@ def mapping_versions(ctx, owner, source, mapping_id, owner_type, limit, page):
     try:
         result = client.get_mapping_versions(owner, source, mapping_id,
                                               owner_type=owner_type, limit=limit, page=page)
-        output_result(ctx, result, format_version_list)
+        output_result(ctx, result, lambda d: format_version_list(d, page=page, limit=limit))
     except APIError as e:
         handle_api_error(e)
 

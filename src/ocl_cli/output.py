@@ -97,7 +97,7 @@ def format_pagination(data: dict, page: int = 1, limit: int = 20) -> str:
 # ── Resource-specific formatters ─────────────────────────────────
 
 
-def format_org_list(data: dict) -> str:
+def format_org_list(data: dict, page: int = 1, limit: int = 25, verbose: bool = False) -> str:
     """Format organization search results."""
     results = data.get("results", [])
     if not results:
@@ -105,22 +105,27 @@ def format_org_list(data: dict) -> str:
 
     rows = []
     for org in results:
-        rows.append({
+        row = {
             "id": org.get("id", ""),
             "name": org.get("name", ""),
             "members": org.get("members", 0),
             "public_sources": org.get("public_sources", 0),
             "public_collections": org.get("public_collections", 0),
             "location": org.get("location", ""),
-        })
+        }
+        if verbose:
+            row["company"] = org.get("company", "")
+            row["updated"] = (org.get("updated_on", "") or "")[:10]
+        rows.append(row)
 
-    table = format_table(
-        rows,
-        ["id", "name", "members", "public_sources", "public_collections", "location"],
-        ["ID", "Name", "Members", "Sources", "Collections", "Location"],
-    )
+    columns = ["id", "name", "members", "public_sources", "public_collections", "location"]
+    headers = ["ID", "Name", "Members", "Sources", "Collections", "Location"]
+    if verbose:
+        columns.extend(["company", "updated"])
+        headers.extend(["Company", "Updated"])
 
-    pagination = format_pagination(data)
+    table = format_table(rows, columns, headers)
+    pagination = format_pagination(data, page, limit)
     return f"{table}\n\n{pagination}" if pagination else table
 
 
@@ -159,7 +164,7 @@ def format_member_list(data: dict) -> str:
     )
 
 
-def format_user_list(data: dict) -> str:
+def format_user_list(data: dict, page: int = 1, limit: int = 25, verbose: bool = False) -> str:
     """Format user search results."""
     results = data.get("results", [])
     if not results:
@@ -172,25 +177,30 @@ def format_user_list(data: dict) -> str:
             first = user.get("first_name", "").strip()
             last = user.get("last_name", "").strip()
             name = f"{first} {last}".strip()
-        rows.append({
+        row = {
             "username": user.get("username", ""),
             "name": name,
             "company": user.get("company", ""),
-            "date_joined": user.get("date_joined", ""),
+            "date_joined": user.get("date_joined", "")[:10] if user.get("date_joined") else "",
             "public_sources": user.get("public_sources", 0),
-        })
+        }
+        if verbose:
+            row["location"] = user.get("location", "")
+            row["updated"] = (user.get("updated_on", "") or "")[:10]
+        rows.append(row)
 
-    table = format_table(
-        rows,
-        ["username", "name", "company", "date_joined", "public_sources"],
-        ["Username", "Name", "Company", "Joined", "Sources"],
-    )
+    columns = ["username", "name", "company", "date_joined", "public_sources"]
+    headers = ["Username", "Name", "Company", "Joined", "Sources"]
+    if verbose:
+        columns.extend(["location", "updated"])
+        headers.extend(["Location", "Updated"])
 
-    pagination = format_pagination(data)
+    table = format_table(rows, columns, headers)
+    pagination = format_pagination(data, page, limit)
     return f"{table}\n\n{pagination}" if pagination else table
 
 
-def format_repo_list(data: dict, verbose: bool = False) -> str:
+def format_repo_list(data: dict, page: int = 1, limit: int = 20, verbose: bool = False) -> str:
     """Format repository search results."""
     results = data.get("results", [])
     if not results:
@@ -204,26 +214,26 @@ def format_repo_list(data: dict, verbose: bool = False) -> str:
             "type": repo.get("source_type") or repo.get("collection_type", ""),
             "owner": repo.get("owner", ""),
             "version": repo.get("version", ""),
-            "concepts": repo.get("active_concepts", 0),
         }
 
         if verbose:
+            desc = repo.get("description", "") or ""
             row.update({
-                "description": repo.get("description", "")[:50] + ("..." if len(repo.get("description", "")) > 50 else ""),
-                "updated": repo.get("updated_on", "")[:10] if repo.get("updated_on") else "",
+                "description": desc[:50] + ("..." if len(desc) > 50 else ""),
+                "updated": (repo.get("updated_on") or repo.get("updated_at", ""))[:10],
             })
 
         rows.append(row)
 
-    columns = ["id", "name", "type", "owner", "version", "concepts"]
-    headers = ["ID", "Name", "Type", "Owner", "Version", "Concepts"]
+    columns = ["id", "name", "type", "owner", "version"]
+    headers = ["ID", "Name", "Type", "Owner", "Version"]
 
     if verbose:
         columns.extend(["description", "updated"])
         headers.extend(["Description", "Updated"])
 
     table = format_table(rows, columns, headers)
-    pagination = format_pagination(data)
+    pagination = format_pagination(data, page, limit)
     return f"{table}\n\n{pagination}" if pagination else table
 
 
@@ -239,8 +249,10 @@ def format_repo_detail(data: dict) -> str:
     lines.append(f"Default Locale: {data.get('default_locale', '')}")
     lines.append(f"Supported Locales: {', '.join(data.get('supported_locales', []))}")
     lines.append(f"Public Access: {data.get('public_access', '')}")
-    lines.append(f"Active Concepts: {data.get('active_concepts', 0)}")
-    lines.append(f"Active Mappings: {data.get('active_mappings', 0)}")
+    if data.get("active_concepts") is not None:
+        lines.append(f"Active Concepts: {data['active_concepts']}")
+    if data.get("active_mappings") is not None:
+        lines.append(f"Active Mappings: {data['active_mappings']}")
     lines.append(f"Created: {data.get('created_on', '')}")
     lines.append(f"Updated: {data.get('updated_on', '')}")
     lines.append(f"URL: {data.get('url', '')}")
@@ -261,18 +273,27 @@ def format_concept_list(data: dict, page: int = 1, limit: int = 20, verbose: boo
 
     rows = []
     for concept in results:
+        # Source: prefer short 'source' field, fall back to extracting from URL
+        source = concept.get("source") or _source_from_url(concept.get("source_url", ""))
+
         row = {
             "id": concept.get("id", ""),
             "display_name": concept.get("display_name", ""),
             "concept_class": concept.get("concept_class", ""),
             "datatype": concept.get("datatype", ""),
-            "source": _source_from_url(concept.get("source_url", "")),
+            "source": source,
         }
 
         if verbose:
+            # Description: extract from descriptions[] array (verbose API response)
+            desc = ""
+            descriptions = concept.get("descriptions")
+            if descriptions and isinstance(descriptions, list) and descriptions:
+                desc = descriptions[0].get("description", "")
+            desc = desc[:40] + ("..." if len(desc) > 40 else "")
             row.update({
-                "description": concept.get("description", "")[:40] + ("..." if len(concept.get("description", "")) > 40 else ""),
-                "updated": concept.get("updated_on", "")[:10] if concept.get("updated_on") else "",
+                "description": desc,
+                "updated": (concept.get("updated_on") or concept.get("version_updated_on", ""))[:10],
             })
 
         rows.append(row)
@@ -296,10 +317,10 @@ def format_concept_detail(data: dict) -> str:
     lines.append(f"Display Name: {data.get('display_name', '')}")
     lines.append(f"Concept Class: {data.get('concept_class', '')}")
     lines.append(f"Datatype: {data.get('datatype', '')}")
-    lines.append(f"Source: {_source_from_url(data.get('source_url', ''))}")
+    source = data.get("source") or _source_from_url(data.get("source_url", ""))
+    lines.append(f"Source: {source}")
     lines.append(f"Owner: {data.get('owner', '')}")
     lines.append(f"Version: {data.get('version', '')}")
-    lines.append(f"Description: {data.get('description', '')}")
     lines.append(f"Retired: {data.get('retired', False)}")
     lines.append(f"Created: {data.get('created_on', '')}")
     lines.append(f"Updated: {data.get('updated_on', '')}")
@@ -407,15 +428,19 @@ def format_mapping_detail(data: dict) -> str:
     lines = []
     lines.append(f"ID: {data.get('id', '')}")
     lines.append(f"Map Type: {data.get('map_type', '')}")
-    lines.append(f"From Concept: {data.get('from_concept_code', '')} - {data.get('from_concept_name', '')}")
-    lines.append(f"To Concept: {data.get('to_concept_code', '')} - {data.get('to_concept_name', '')}")
-    lines.append(f"Source: {_source_from_url(data.get('source_url', ''))}")
-    lines.append(f"To Source: {_source_from_url(data.get('to_source_url', ''))}")
+    from_name = data.get("from_concept_name") or data.get("from_concept_name_resolved", "")
+    to_name = data.get("to_concept_name") or data.get("to_concept_name_resolved", "")
+    lines.append(f"From Concept: {data.get('from_concept_code', '')} - {from_name}")
+    lines.append(f"To Concept: {data.get('to_concept_code', '')} - {to_name}")
+    source = data.get("source") or _source_from_url(data.get("source_url", ""))
+    to_source = _source_from_url(data.get("to_source_url", ""))
+    lines.append(f"Source: {source}")
+    lines.append(f"To Source: {to_source}")
     lines.append(f"Owner: {data.get('owner', '')}")
     lines.append(f"Version: {data.get('version', '')}")
     lines.append(f"Retired: {data.get('retired', False)}")
-    lines.append(f"Created: {data.get('created_on', '')}")
-    lines.append(f"Updated: {data.get('updated_on', '')}")
+    lines.append(f"Created: {data.get('created_on') or data.get('version_created_on', '')}")
+    lines.append(f"Updated: {data.get('updated_on') or data.get('version_updated_on', '')}")
     lines.append(f"URL: {data.get('url', '')}")
 
     if data.get("extras"):
@@ -426,31 +451,50 @@ def format_mapping_detail(data: dict) -> str:
     return "\n".join(lines)
 
 
-def format_version_list(data: dict) -> str:
-    """Format version list."""
+def format_version_list(data: dict, page: int = 1, limit: int = 20) -> str:
+    """Format version list.
+
+    Handles both repo versions (have match_algorithms, released) and
+    concept/mapping versions (have version, update_comment, version_created_on).
+    """
     results = data.get("results", [])
     if not results:
         return "No versions found."
 
+    # Detect type: concept/mapping versions have 'version' as numeric ID
+    # and 'version_created_on'; repo versions have 'match_algorithms'
+    is_concept_version = "version_created_on" in results[0] and "match_algorithms" not in results[0]
+
     rows = []
-    for version in results:
-        algos = version.get("match_algorithms", [])
-        rows.append({
-            "id": version.get("id", ""),
-            "description": version.get("description", ""),
-            "released": "Yes" if version.get("released") else "No",
-            "match": ", ".join(algos) if algos else "",
-            "created": version.get("created_at", "")[:10] if version.get("created_at") else "",
-        })
+    if is_concept_version:
+        for v in results:
+            created = (v.get("version_created_on") or "")[:19]
+            rows.append({
+                "version": v.get("version", ""),
+                "comment": v.get("update_comment", "") or "",
+                "retired": "Yes" if v.get("retired") else "No",
+                "created": created,
+            })
+        columns = ["version", "comment", "retired", "created"]
+        headers = ["Version", "Comment", "Retired", "Created"]
+    else:
+        for v in results:
+            algos = v.get("match_algorithms", [])
+            rows.append({
+                "id": v.get("id", ""),
+                "released": "Yes" if v.get("released") else "No",
+                "match": ", ".join(algos) if algos else "",
+                "created": (v.get("created_at") or v.get("created_on", ""))[:10],
+            })
+        columns = ["id", "released", "match", "created"]
+        headers = ["Version", "Released", "Match Algos", "Created"]
 
-    return format_table(
-        rows,
-        ["id", "description", "released", "match", "created"],
-        ["Version", "Description", "Released", "Match Algos", "Created"],
-    )
+    table = format_table(rows, columns, headers)
+    pagination = format_pagination(data, page, limit)
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
-def format_names_list(data: dict) -> str:
+def format_names_list(data: dict, verbose: bool = False) -> str:
     """Format concept names list."""
     results = data.get("results", [])
     if not results:
@@ -458,21 +502,26 @@ def format_names_list(data: dict) -> str:
 
     rows = []
     for name in results:
-        rows.append({
+        row = {
             "name": name.get("name", ""),
             "locale": name.get("locale", ""),
             "type": name.get("name_type", ""),
             "preferred": "Yes" if name.get("locale_preferred") else "No",
-        })
+        }
+        if verbose:
+            row["external_id"] = name.get("external_id", "")
+        rows.append(row)
 
-    return format_table(
-        rows,
-        ["name", "locale", "type", "preferred"],
-        ["Name", "Locale", "Type", "Preferred"],
-    )
+    columns = ["name", "locale", "type", "preferred"]
+    headers = ["Name", "Locale", "Type", "Preferred"]
+    if verbose:
+        columns.append("external_id")
+        headers.append("External ID")
+
+    return format_table(rows, columns, headers)
 
 
-def format_descriptions_list(data: dict) -> str:
+def format_descriptions_list(data: dict, verbose: bool = False) -> str:
     """Format concept descriptions list."""
     results = data.get("results", [])
     if not results:
@@ -484,18 +533,23 @@ def format_descriptions_list(data: dict) -> str:
         if len(description_text) > 60:
             description_text = description_text[:57] + "..."
 
-        rows.append({
+        row = {
             "description": description_text,
             "locale": desc.get("locale", ""),
             "type": desc.get("description_type", ""),
             "preferred": "Yes" if desc.get("locale_preferred") else "No",
-        })
+        }
+        if verbose:
+            row["external_id"] = desc.get("external_id", "")
+        rows.append(row)
 
-    return format_table(
-        rows,
-        ["description", "locale", "type", "preferred"],
-        ["Description", "Locale", "Type", "Preferred"],
-    )
+    columns = ["description", "locale", "type", "preferred"]
+    headers = ["Description", "Locale", "Type", "Preferred"]
+    if verbose:
+        columns.append("external_id")
+        headers.append("External ID")
+
+    return format_table(rows, columns, headers)
 
 
 def format_extras(data: dict) -> str:
@@ -512,7 +566,7 @@ def format_extras(data: dict) -> str:
     return "\n".join(lines)
 
 
-def format_match_results(data: dict) -> str:
+def format_match_results(data: dict, verbose: bool = False) -> str:
     """Format $match results grouped by input term."""
     results = data.get("results", [])
     if not results:
@@ -527,12 +581,22 @@ def format_match_results(data: dict) -> str:
             lines.append("  No matches found.")
             continue
         for m in matches:
-            score = m.get("search_meta", {}).get("search_score", "?")
+            meta = m.get("search_meta", {})
+            score = meta.get("search_score", "?")
             score_str = f"{score:.2f}" if isinstance(score, (int, float)) else str(score)
             line = (
                 f"  [{score_str}] {m.get('id', '')} - {m.get('display_name', '')}"
                 f"  {m.get('url', '')}"
             )
+            if verbose:
+                parts = []
+                if m.get("concept_class"):
+                    parts.append(m["concept_class"])
+                algo = meta.get("algorithm", "")
+                if algo:
+                    parts.append(algo)
+                if parts:
+                    line += f"  ({', '.join(parts)})"
             # Show mapping summary when --include-mappings is used
             mappings = m.get("mappings", [])
             if mappings:
@@ -645,7 +709,7 @@ def _format_cascade_table(results: list, verbose: bool = False) -> str:
     return format_table(rows, columns, headers)
 
 
-def format_reference_list(data: dict) -> str:
+def format_reference_list(data: dict, page: int = 1, limit: int = 20) -> str:
     """Format collection reference list."""
     results = data.get("results", [])
     if not results:
@@ -656,15 +720,15 @@ def format_reference_list(data: dict) -> str:
         rows.append({
             "expression": ref.get("expression", ""),
             "type": ref.get("reference_type", ""),
-            "concepts": ref.get("concepts", 0),
-            "mappings": ref.get("mappings", 0),
         })
 
-    return format_table(
+    table = format_table(
         rows,
-        ["expression", "type", "concepts", "mappings"],
-        ["Expression", "Type", "Concepts", "Mappings"],
+        ["expression", "type"],
+        ["Expression", "Type"],
     )
+    pagination = format_pagination(data, page, limit)
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def format_expansion_list(data: dict) -> str:
@@ -678,15 +742,14 @@ def format_expansion_list(data: dict) -> str:
         rows.append({
             "id": expansion.get("id", ""),
             "collection_version": expansion.get("collection_version", ""),
-            "concepts": expansion.get("concepts", 0),
-            "mappings": expansion.get("mappings", 0),
+            "processing": "Yes" if expansion.get("is_processing") else "No",
             "created": expansion.get("created_on", "")[:10] if expansion.get("created_on") else "",
         })
 
     return format_table(
         rows,
-        ["id", "collection_version", "concepts", "mappings", "created"],
-        ["ID", "Collection Version", "Concepts", "Mappings", "Created"],
+        ["id", "collection_version", "processing", "created"],
+        ["ID", "Collection Version", "Processing", "Created"],
     )
 
 
@@ -695,10 +758,12 @@ def format_expansion_detail(data: dict) -> str:
     lines = []
     lines.append(f"ID: {data.get('id', '')}")
     lines.append(f"Collection Version: {data.get('collection_version', '')}")
-    lines.append(f"Concepts: {data.get('concepts', 0)}")
-    lines.append(f"Mappings: {data.get('mappings', 0)}")
+    lines.append(f"Processing: {'Yes' if data.get('is_processing') else 'No'}")
     lines.append(f"Created: {data.get('created_on', '')}")
     lines.append(f"URL: {data.get('url', '')}")
+
+    if data.get("parameters"):
+        lines.append(f"\nParameters: {data['parameters']}")
 
     return "\n".join(lines)
 
@@ -752,7 +817,7 @@ def format_server_list(servers: dict, default_server: str) -> str:
     )
 
 
-def format_task_list(data: dict, verbose: bool = False) -> str:
+def format_task_list(data: dict, page: int = 1, limit: int = 20, verbose: bool = False) -> str:
     """Format task list results."""
     results = data.get("results", [])
     if not results:
@@ -772,7 +837,7 @@ def format_task_list(data: dict, verbose: bool = False) -> str:
                 "message": str(t.get("result", t.get("summary", "")))[:60],
             }
             display_rows.append(row)
-        return format_table(
+        table = format_table(
             display_rows,
             columns=["id", "state", "name", "queue", "started_at", "finished_at", "runtime", "message"],
             headers=["ID", "State", "Name", "Queue", "Started", "Finished", "Runtime", "Message"],
@@ -786,11 +851,14 @@ def format_task_list(data: dict, verbose: bool = False) -> str:
                 "name": t.get("name", t.get("task", "")),
                 "updated_on": str(t.get("finished_at") or t.get("started_at") or "")[:19],
             })
-        return format_table(
+        table = format_table(
             display_rows,
             columns=["id", "state", "name", "updated_on"],
             headers=["ID", "State", "Name", "Updated"],
         )
+
+    pagination = format_pagination(data, page, limit)
+    return f"{table}\n\n{pagination}" if pagination else table
 
 
 def _format_runtime(started: Any, finished: Any) -> str:

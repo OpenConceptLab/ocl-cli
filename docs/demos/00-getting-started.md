@@ -24,7 +24,7 @@ ocl login                                          # re-authenticate for remaini
 
 ## 0.3 Global Flags
 ```bash
-ocl -j owner get CIEL                             # JSON output for agent consumption
+ocl -j org get CIEL                               # JSON output for agent consumption
 ocl -d concept search malaria --owner CIEL --repo CIEL --limit 1  # debug: show HTTP request + body
 ocl concept get NONEXISTENT SOURCE 999; echo $?   # exit code 1 (client error)
 ```

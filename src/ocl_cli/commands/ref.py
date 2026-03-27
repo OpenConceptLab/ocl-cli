@@ -29,7 +29,7 @@ def ref_list(ctx, owner, collection, owner_type, collection_version, limit, page
             owner, collection, owner_type=owner_type,
             collection_version=collection_version, limit=limit, page=page,
         )
-        output_result(ctx, result, format_reference_list)
+        output_result(ctx, result, lambda d: format_reference_list(d, page=page, limit=limit))
     except APIError as e:
         handle_api_error(e)
 
@@ -54,7 +54,12 @@ def add(ctx, owner, collection, expressions, owner_type, cascade_opt):
             owner, collection, list(expressions),
             owner_type=owner_type, cascade=cascade_opt,
         )
-        output_result(ctx, result)
+        def _fmt_add(d):
+            if isinstance(d, list):
+                return f"Added {len(d)} reference(s)"
+            added = d.get("added", []) if isinstance(d, dict) else []
+            return f"Added {len(added)} reference(s)"
+        output_result(ctx, result, _fmt_add)
     except APIError as e:
         handle_api_error(e)
 
@@ -69,10 +74,9 @@ def remove(ctx, owner, collection, expressions, owner_type):
     """Remove references from a collection."""
     client = ctx.obj["client"]
     try:
-        result = client.remove_collection_ref(
+        client.remove_collection_ref(
             owner, collection, list(expressions), owner_type=owner_type,
         )
-        output_result(ctx, result)
         click.echo(f"Removed {len(expressions)} reference(s)")
     except APIError as e:
         handle_api_error(e)

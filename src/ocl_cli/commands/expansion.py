@@ -4,7 +4,7 @@ import click
 
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
-from ocl_cli.output import output_result, format_expansion_list
+from ocl_cli.output import output_result, format_expansion_list, format_expansion_detail
 
 
 @click.group()
@@ -44,7 +44,7 @@ def get(ctx, owner, collection, owner_type, collection_version, expansion_id):
             owner, collection, owner_type=owner_type,
             collection_version=collection_version, expansion_id=expansion_id,
         )
-        output_result(ctx, result)
+        output_result(ctx, result, format_expansion_detail)
     except APIError as e:
         handle_api_error(e)
 

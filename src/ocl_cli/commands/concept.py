@@ -104,7 +104,7 @@ def concept_versions(ctx, owner, source, concept_id, owner_type, limit, page):
     try:
         result = client.get_concept_versions(owner, source, concept_id,
                                               owner_type=owner_type, limit=limit, page=page)
-        output_result(ctx, result, format_version_list)
+        output_result(ctx, result, lambda d: format_version_list(d, page=page, limit=limit))
     except APIError as e:
         handle_api_error(e)
 
@@ -114,13 +114,14 @@ def concept_versions(ctx, owner, source, concept_id, owner_type, limit, page):
 @click.argument("source")
 @click.argument("concept_id")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.option("--verbose", is_flag=True, help="Include external IDs")
 @click.pass_context
-def concept_names(ctx, owner, source, concept_id, owner_type):
+def concept_names(ctx, owner, source, concept_id, owner_type, verbose):
     """List names/translations for a concept."""
     client = ctx.obj["client"]
     try:
         result = client.get_concept_names(owner, source, concept_id, owner_type=owner_type)
-        output_result(ctx, result, format_names_list)
+        output_result(ctx, result, lambda d: format_names_list(d, verbose=verbose))
     except APIError as e:
         handle_api_error(e)
 
@@ -130,13 +131,14 @@ def concept_names(ctx, owner, source, concept_id, owner_type):
 @click.argument("source")
 @click.argument("concept_id")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.option("--verbose", is_flag=True, help="Include external IDs")
 @click.pass_context
-def concept_descriptions(ctx, owner, source, concept_id, owner_type):
+def concept_descriptions(ctx, owner, source, concept_id, owner_type, verbose):
     """List descriptions for a concept."""
     client = ctx.obj["client"]
     try:
         result = client.get_concept_descriptions(owner, source, concept_id, owner_type=owner_type)
-        output_result(ctx, result, format_descriptions_list)
+        output_result(ctx, result, lambda d: format_descriptions_list(d, verbose=verbose))
     except APIError as e:
         handle_api_error(e)
 
@@ -166,7 +168,7 @@ def concept_extras(ctx, owner, source, concept_id, owner_type):
 @click.argument("concept_id")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--concept-class", required=True, help="Concept class (e.g. Diagnosis, Procedure)")
-@click.option("--datatype", help="Data type (e.g. Numeric, Coded)")
+@click.option("--datatype", default="N/A", help="Data type (e.g. N/A, Numeric, Coded, Text)")
 @click.option("--name", "name_text", required=True, help="Primary name")
 @click.option("--name-locale", default="en", help="Locale for primary name")
 @click.option("--name-type", help="Name type (e.g. Fully Specified)")
@@ -282,7 +284,9 @@ def name_add(ctx, owner, source, concept_id, name_text, locale, name_type,
             owner_type=owner_type, name_type=name_type,
             locale_preferred=locale_preferred,
         )
-        output_result(ctx, result)
+        def _fmt_name(d):
+            return f"Added name: {d.get('name', '')} ({d.get('locale', '')}, {d.get('name_type', '')})"
+        output_result(ctx, result, _fmt_name)
     except APIError as e:
         handle_api_error(e)
 
@@ -304,7 +308,10 @@ def description_add(ctx, owner, source, concept_id, text, locale, description_ty
             owner, source, concept_id, text, locale,
             owner_type=owner_type, description_type=description_type,
         )
-        output_result(ctx, result)
+        def _fmt_desc(d):
+            desc = d.get("description", "")
+            return f"Added description: {desc[:60]}{'...' if len(desc) > 60 else ''} ({d.get('locale', '')})"
+        output_result(ctx, result, _fmt_desc)
     except APIError as e:
         handle_api_error(e)
 
@@ -381,6 +388,6 @@ def match(ctx, terms, target_source, target_owner, target_version, owner_type,
             include_mappings=include_mappings,
             semantic=not no_semantic, verbose=verbose,
         )
-        output_result(ctx, result, format_match_results)
+        output_result(ctx, result, lambda d: format_match_results(d, verbose=verbose))
     except APIError as e:
         handle_api_error(e)

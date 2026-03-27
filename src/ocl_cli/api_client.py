@@ -165,9 +165,9 @@ class OCLAPIClient:
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
-    def put(self, endpoint: str, json: Optional[dict] = None) -> Any:
-        self._log_request("PUT", endpoint, body=json)
-        response = self.client.put(endpoint, json=json)
+    def put(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
+        self._log_request("PUT", endpoint, params, body=json)
+        response = self.client.put(endpoint, json=json, params=params)
         self._handle_error(response)
         return response.json()
 
@@ -220,11 +220,36 @@ class OCLAPIClient:
 
     # ── Helpers ──────────────────────────────────────────────────────
 
-    def _normalize(self, response: Any) -> dict:
-        """Normalize list responses to {count, results} format."""
+    def _normalize(self, response: Any, headers: Optional[dict] = None) -> dict:
+        """Normalize list responses to {count, results} format.
+
+        When ``headers`` are provided (from _get_list), ``num_found`` is used
+        as the authoritative total count for pagination.
+        """
+        num_found = int(headers.get("num_found", 0)) if headers else 0
         if isinstance(response, list):
-            return {"count": len(response), "results": response}
+            return {"count": num_found or len(response), "results": response}
+        if isinstance(response, dict) and num_found:
+            response["count"] = num_found
         return response
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+    )
+    def _get_list(self, endpoint: str, params: Optional[dict] = None) -> dict:
+        """GET a list endpoint, preserving pagination headers.
+
+        The OCL API returns lists with pagination metadata in response
+        headers (num_found, num_returned, page_number).  The standard
+        get() discards headers, so this method captures them and feeds
+        them to _normalize() for correct total counts.
+        """
+        self._log_request("GET", endpoint, params)
+        response = self.client.get(endpoint, params=params)
+        self._handle_error(response)
+        return self._normalize(response.json(), headers=dict(response.headers))
 
     def _require_auth(self) -> None:
         if not self.token:
@@ -252,7 +277,7 @@ class OCLAPIClient:
             params["q"] = query
         if verbose:
             params["verbose"] = True
-        return self._normalize(self.get("/orgs/", params=params))
+        return self._get_list("/orgs/", params=params)
 
     def get_org(self, org: str) -> dict:
         """Get a specific organization."""
@@ -269,7 +294,7 @@ class OCLAPIClient:
         params: dict[str, Any] = {"limit": limit, "page": page}
         if repo_type != "all":
             params["repoType"] = "Source" if repo_type == "source" else "Collection"
-        return self._normalize(self.get(f"/orgs/{org}/repos/", params=params))
+        return self._get_list(f"/orgs/{org}/repos/", params=params)
 
     # ── User operations ──────────────────────────────────────────
 
@@ -286,7 +311,7 @@ class OCLAPIClient:
             params["q"] = query
         if verbose:
             params["verbose"] = True
-        return self._normalize(self.get("/users/", params=params))
+        return self._get_list("/users/", params=params)
 
     def get_user_detail(self, username: str) -> dict:
         """Get a specific user by username."""
@@ -303,15 +328,15 @@ class OCLAPIClient:
         params: dict[str, Any] = {"limit": limit, "page": page}
         if repo_type != "all":
             params["repoType"] = "Source" if repo_type == "source" else "Collection"
-        return self._normalize(self.get(f"/users/{username}/repos/", params=params))
+        return self._get_list(f"/users/{username}/repos/", params=params)
 
     def list_user_orgs(self, username: str, limit: int = 100) -> dict:
         """List organizations a user belongs to."""
-        return self._normalize(self.get(f"/users/{username}/orgs/", params={"limit": limit}))
+        return self._get_list(f"/users/{username}/orgs/", params={"limit": limit})
 
     def get_org_members(self, org: str, limit: int = 100) -> dict:
         """List members of an organization."""
-        return self._normalize(self.get(f"/orgs/{org}/members/", params={"limit": limit}))
+        return self._get_list(f"/orgs/{org}/members/", params={"limit": limit})
 
     def search_repos(
         self,
@@ -329,14 +354,23 @@ class OCLAPIClient:
             params["verbose"] = True
         if query:
             params["q"] = query
-        if owner:
-            params["owner"] = owner
-        if owner_type != "all":
-            params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
         if repo_type != "all":
             params["repoType"] = "Source" if repo_type == "source" else "Collection"
 
-        return self._normalize(self.get("/repos/", params=params))
+        # Use scoped endpoint when owner is specified
+        if owner and owner_type and owner_type != "all":
+            ot = owner_type  # "orgs" or "users"
+            endpoint = f"/{ot}/{owner}/repos/"
+        elif owner:
+            # Default to orgs scope
+            endpoint = f"/orgs/{owner}/repos/"
+        else:
+            # Global search — add owner/ownerType as query params
+            endpoint = "/repos/"
+            if owner_type != "all":
+                params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
+
+        return self._get_list(endpoint, params=params)
 
     def get_repo(
         self,
@@ -368,7 +402,7 @@ class OCLAPIClient:
             params["released"] = str(released).lower()
         if processing is not None:
             params["processing"] = str(processing).lower()
-        return self._normalize(self.get(endpoint, params=params))
+        return self._get_list(endpoint, params=params)
 
     def search_concepts(
         self,
@@ -414,25 +448,24 @@ class OCLAPIClient:
             params["sortAsc"] = sort if not sort.startswith("-") else None
             if sort.startswith("-"):
                 params["sortDesc"] = sort[1:]
-        if owner:
-            params["owner"] = owner
-        if owner_type and owner_type not in ("all",):
-            params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
-
-        # Determine endpoint scope
+        # Determine endpoint scope — use narrowest available
         if all([owner_type, owner, repo_type, repo]):
             endpoint = _build_repo_endpoint(
                 owner_type, owner, repo_type, repo, repo_version, suffix="concepts/"
             )
         elif owner and repo:
-            # Assume orgs/source if not specified
             ot = owner_type or "orgs"
             rt = repo_type or "source"
             endpoint = _build_repo_endpoint(ot, owner, rt, repo, repo_version, suffix="concepts/")
         else:
+            # Global search — add owner/ownerType as query params
             endpoint = "/concepts/"
+            if owner:
+                params["owner"] = owner
+            if owner_type and owner_type not in ("all",):
+                params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
 
-        return self._normalize(self.get(endpoint, params=params))
+        return self._get_list(endpoint, params=params)
 
     def get_concept(
         self,
@@ -478,7 +511,7 @@ class OCLAPIClient:
         """List version history for a concept."""
         _validate_owner_type(owner_type)
         endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/versions/"
-        return self._normalize(self.get(endpoint, params={"limit": limit, "page": page}))
+        return self._get_list(endpoint, params={"limit": limit, "page": page})
 
     def get_concept_names(
         self,
@@ -490,7 +523,7 @@ class OCLAPIClient:
         """List names for a concept."""
         _validate_owner_type(owner_type)
         endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/names/"
-        return self._normalize(self.get(endpoint))
+        return self._get_list(endpoint)
 
     def get_concept_descriptions(
         self,
@@ -502,7 +535,7 @@ class OCLAPIClient:
         """List descriptions for a concept."""
         _validate_owner_type(owner_type)
         endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/descriptions/"
-        return self._normalize(self.get(endpoint))
+        return self._get_list(endpoint)
 
     def get_concept_extras(
         self,
@@ -566,11 +599,7 @@ class OCLAPIClient:
             params["sortAsc"] = sort if not sort.startswith("-") else None
             if sort.startswith("-"):
                 params["sortDesc"] = sort[1:]
-        if owner:
-            params["owner"] = owner
-        if owner_type and owner_type not in ("all",):
-            params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
-
+        # Determine endpoint scope — use narrowest available
         if all([owner_type, owner, repo_type, repo]):
             endpoint = _build_repo_endpoint(
                 owner_type, owner, repo_type, repo, repo_version, suffix="mappings/"
@@ -580,9 +609,14 @@ class OCLAPIClient:
             rt = repo_type or "source"
             endpoint = _build_repo_endpoint(ot, owner, rt, repo, repo_version, suffix="mappings/")
         else:
+            # Global search — add owner/ownerType as query params
             endpoint = "/mappings/"
+            if owner:
+                params["owner"] = owner
+            if owner_type and owner_type not in ("all",):
+                params["ownerType"] = "Organization" if owner_type == "orgs" else "User"
 
-        return self._normalize(self.get(endpoint, params=params))
+        return self._get_list(endpoint, params=params)
 
     def get_mapping(
         self,
@@ -611,7 +645,7 @@ class OCLAPIClient:
         """List version history for a mapping."""
         _validate_owner_type(owner_type)
         endpoint = f"/{owner_type}/{owner}/sources/{source}/mappings/{mapping_id}/versions/"
-        return self._normalize(self.get(endpoint, params={"limit": limit, "page": page}))
+        return self._get_list(endpoint, params={"limit": limit, "page": page})
 
     def cascade(
         self,
@@ -725,7 +759,7 @@ class OCLAPIClient:
         """List expansions for a collection version."""
         _validate_owner_type(owner_type)
         endpoint = f"/{owner_type}/{owner}/collections/{collection}/{collection_version}/expansions/"
-        return self._normalize(self.get(endpoint, params={"verbose": True}))
+        return self._get_list(endpoint, params={"verbose": True})
 
     def get_expansion(
         self,
@@ -775,7 +809,7 @@ class OCLAPIClient:
         if collection_version:
             base = f"{base}/{collection_version}"
         endpoint = f"{base}/references/"
-        return self._normalize(self.get(endpoint, params={"limit": limit, "page": page}))
+        return self._get_list(endpoint, params={"limit": limit, "page": page})
 
     def resolve_reference(self, *expressions: str, namespace: Optional[str] = None) -> dict:
         """Resolve references using $resolveReference."""
@@ -1126,7 +1160,7 @@ class OCLAPIClient:
         params: dict[str, Any] = {}
         if cascade:
             params["cascade"] = cascade
-        return self.put(endpoint, json=body)
+        return self.put(endpoint, json=body, params=params or None)
 
     def remove_collection_ref(
         self,
@@ -1260,7 +1294,7 @@ class OCLAPIClient:
         params: dict[str, Any] = {"limit": limit, "page": page}
         if state:
             params["state"] = state
-        return self._normalize(self.get("/tasks/", params=params))
+        return self._get_list("/tasks/", params=params)
 
     def get_task(self, task_id: str) -> dict:
         """Get details of a specific task."""

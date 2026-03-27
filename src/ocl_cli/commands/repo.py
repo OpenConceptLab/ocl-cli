@@ -37,7 +37,7 @@ def repo_list(ctx, query, owner, owner_type, repo_type, verbose, limit, page):
             query=query, owner=owner, owner_type=owner_type,
             repo_type=repo_type, verbose=verbose, limit=limit, page=page,
         )
-        output_result(ctx, result, format_repo_list)
+        output_result(ctx, result, lambda d: format_repo_list(d, page=page, limit=limit, verbose=verbose))
     except APIError as e:
         handle_api_error(e)
 
@@ -80,7 +80,7 @@ def versions(ctx, owner, repo_name, owner_type, repo_type, released, limit, page
             owner, repo_name, owner_type=owner_type, repo_type=repo_type,
             released=released, limit=limit, page=page,
         )
-        output_result(ctx, result, format_version_list)
+        output_result(ctx, result, lambda d: format_version_list(d, page=page, limit=limit))
     except APIError as e:
         handle_api_error(e)
 

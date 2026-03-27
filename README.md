@@ -111,7 +111,7 @@ The `--verbose` flag controls the OCL API's `?verbose=true` parameter. With `-j`
 ocl org list [QUERY] [--verbose] [--limit N] [--page N]
 ocl org get ORG
 ocl org members ORG [--limit N]
-ocl org repos ORG [--type source|collection|all] [--limit N] [--page N]
+ocl org repos ORG [--type source|collection|all] [--verbose] [--limit N] [--page N]
 
 # Organization management (requires auth)
 ocl org create ORG_ID NAME [--company ...] [--website ...] [--location ...] [--public-access View|Edit|None]
@@ -125,7 +125,7 @@ ocl org remove-member ORG USERNAME [--yes]
 ```bash
 ocl user list [QUERY] [--verbose] [--limit N] [--page N]
 ocl user get USERNAME
-ocl user repos USERNAME [--type source|collection|all] [--limit N] [--page N]
+ocl user repos USERNAME [--type source|collection|all] [--verbose] [--limit N] [--page N]
 ocl user orgs USERNAME [--limit N]
 ```
 
@@ -135,7 +135,7 @@ Sources and collections are unified under `ocl repo` with a `--type` flag.
 
 ```bash
 # Browse
-ocl repo list [QUERY] [--owner OWNER] [--type source|collection|all]
+ocl repo list [QUERY] [--owner OWNER] [--type source|collection|all] [--verbose]
 ocl repo get OWNER REPO [--type source|collection] [--repo-version VERSION]
 ocl repo versions OWNER REPO [--type source|collection]
 
@@ -187,12 +187,12 @@ ocl repo export download CIEL CIEL v2026-03-23 --type source -o CIEL_v2026-03-23
 ocl concept search [QUERY] [--owner OWNER] [--repo REPO] [--concept-class CLASS]
 ocl concept get OWNER SOURCE CONCEPT_ID [--repo-version VERSION] [--include-mappings] [--include-inverse-mappings]
 ocl concept versions OWNER SOURCE CONCEPT_ID
-ocl concept names OWNER SOURCE CONCEPT_ID
-ocl concept descriptions OWNER SOURCE CONCEPT_ID
+ocl concept names OWNER SOURCE CONCEPT_ID [--verbose]
+ocl concept descriptions OWNER SOURCE CONCEPT_ID [--verbose]
 ocl concept extras OWNER SOURCE CONCEPT_ID
 
 # Create & update (requires auth)
-ocl concept create OWNER SOURCE CONCEPT_ID --concept-class CLASS --name NAME
+ocl concept create OWNER SOURCE CONCEPT_ID --concept-class CLASS --name NAME [--datatype TYPE]
 ocl concept update OWNER SOURCE CONCEPT_ID [--concept-class CLASS] [--datatype TYPE]
 ocl concept retire OWNER SOURCE CONCEPT_ID
 ocl concept name-add OWNER SOURCE CONCEPT_ID NAME --locale LOCALE
@@ -201,7 +201,7 @@ ocl concept extra-set OWNER SOURCE CONCEPT_ID KEY VALUE
 ocl concept extra-del OWNER SOURCE CONCEPT_ID KEY
 
 # Intelligent matching
-ocl concept match TERM... --target-source SOURCE [--target-owner OWNER] [--limit N]
+ocl concept match TERM... --target-source SOURCE [--target-owner OWNER] [--verbose] [--limit N]
 ocl concept match "glucose" --target-source CIEL --concept-class Diagnosis --limit 5
 ocl concept match "malaria" "diabetes" --target-source CIEL --include-mappings --limit 1
 ```
