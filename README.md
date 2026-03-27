@@ -1,6 +1,6 @@
 # OCL CLI
 
-Command-line interface for the [Open Concept Lab](https://openconceptlab.org) API. Search, browse, and manage concepts, mappings, sources, and collections from your terminal.
+Command-line interface for the [Open Concept Lab](https://openconceptlab.org) API. Search, browse, and manage concepts, mappings, sources, and collections from your terminal. Multi-server ready.
 
 Designed for both humans and AI agents.
 
