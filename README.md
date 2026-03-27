@@ -31,30 +31,9 @@ ocl --help
 
 ## Quick Start
 
-### 1. Browse without authentication
+### 1. Authenticate
 
-Many OCL resources are public. You can search and browse without logging in:
-
-```bash
-# Search for organizations
-ocl org list WHO
-
-# Search for sources
-ocl repo list --owner CIEL --type source
-
-# Search for concepts
-ocl concept search malaria --owner CIEL --repo CIEL
-
-# Get a specific concept with its cross-terminology mappings
-ocl concept get CIEL CIEL 116128 --include-mappings
-
-# Search for mappings (--owner/--repo scope the mapping's source)
-ocl mapping search --owner CIEL --repo CIEL --to-concept 116128
-```
-
-### 2. Authenticate for write operations
-
-To create or modify resources, you need an API token from [app.openconceptlab.org](https://app.openconceptlab.org):
+You need an API token from [app.openconceptlab.org](https://app.openconceptlab.org):
 
 ```bash
 # Store your token (prompts securely)
@@ -75,6 +54,25 @@ Or set an environment variable:
 ```bash
 export OCL_API_TOKEN=your_token_here
 ocl whoami
+```
+
+### 2. Explore the API
+
+```bash
+# Search for organizations
+ocl org list WHO
+
+# Search for sources
+ocl repo list --owner CIEL --type source
+
+# Search for concepts
+ocl concept search malaria --owner CIEL --repo CIEL
+
+# Get a specific concept with its cross-terminology mappings
+ocl concept get CIEL CIEL 116128 --include-mappings
+
+# Search for mappings (--owner/--repo scope the mapping's source)
+ocl mapping search --owner CIEL --repo CIEL --to-concept 116128
 ```
 
 ### 3. JSON output for scripting and agents
@@ -113,7 +111,7 @@ ocl org get ORG
 ocl org members ORG [--limit N]
 ocl org repos ORG [--type source|collection|all] [--verbose] [--limit N] [--page N]
 
-# Organization management (requires auth)
+# Organization management
 ocl org create ORG_ID NAME [--company ...] [--website ...] [--location ...] [--public-access View|Edit|None]
 ocl org delete ORG_ID [--yes]
 ocl org add-member ORG USERNAME
@@ -139,7 +137,7 @@ ocl repo list [QUERY] [--owner OWNER] [--type source|collection|all] [--verbose]
 ocl repo get OWNER REPO [--type source|collection] [--repo-version VERSION]
 ocl repo versions OWNER REPO [--type source|collection]
 
-# Create & update (requires auth)
+# Create & update
 ocl repo create OWNER REPO_ID NAME --type source|collection [options]
 ocl repo update OWNER REPO [--name NAME] [--description DESC]
 ocl repo version-create OWNER REPO VERSION_ID [--released/--no-released]
@@ -191,7 +189,7 @@ ocl concept names OWNER SOURCE CONCEPT_ID [--verbose]
 ocl concept descriptions OWNER SOURCE CONCEPT_ID [--verbose]
 ocl concept extras OWNER SOURCE CONCEPT_ID
 
-# Create & update (requires auth)
+# Create & update
 ocl concept create OWNER SOURCE CONCEPT_ID --concept-class CLASS --name NAME [--datatype TYPE]
 ocl concept update OWNER SOURCE CONCEPT_ID [--concept-class CLASS] [--datatype TYPE]
 ocl concept retire OWNER SOURCE CONCEPT_ID
@@ -216,7 +214,7 @@ ocl mapping search --owner CIEL --repo CIEL --to-concept 116128
 ocl mapping get OWNER SOURCE MAPPING_ID [--repo-version VERSION]
 ocl mapping versions OWNER SOURCE MAPPING_ID
 
-# Create & update (requires auth)
+# Create & update
 ocl mapping create OWNER SOURCE --map-type TYPE --from-concept-url URL --to-concept-url URL
 ocl mapping update OWNER SOURCE MAPPING_ID [--map-type TYPE]
 ocl mapping retire OWNER SOURCE MAPPING_ID
