@@ -6,12 +6,33 @@ Designed for both humans and AI agents.
 
 ## Installation
 
-### From source (recommended for now)
+### Recommended: pipx (isolated global install)
 
 ```bash
-git clone https://github.com/OpenConceptLab/ocl-cli.git
-cd ocl-cli
-pip install .
+pipx install openconceptlab
+```
+
+This installs `ocl` as a global command with no dependency conflicts. [Get pipx](https://pipx.pypa.io/stable/installation/) if you don't have it.
+
+### Alternative: pip
+
+```bash
+pip install openconceptlab
+```
+
+### Alternative: uv
+
+```bash
+uv tool install openconceptlab
+```
+
+### One-off (no install)
+
+Run without installing using pipx or uvx:
+
+```bash
+pipx run openconceptlab --help
+uvx openconceptlab --help
 ```
 
 ### For development
