@@ -89,8 +89,10 @@ cli.add_command(task)
 
 # Operational tools
 from ocl_cli.commands.tool import tool  # noqa: E402
+from ocl_cli.commands.import_cmd import import_cmd  # noqa: E402
 
 cli.add_command(tool)
+cli.add_command(import_cmd)
 
 # Utility commands
 from ocl_cli.commands.reference import reference  # noqa: E402

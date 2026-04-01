@@ -10,7 +10,7 @@
 |------|-------------|--------|--------|
 | 1a | Repo export | **Done** | [#60](https://gitea.lab.jpayne.me/ocl/ocl-cli/issues/60) |
 | 1b | Reference resolution (`$resolveReference`) | Not started | — |
-| 2 | Bulk import | Not started | — |
+| 2 | Bulk import | **Done** | [ocl_issues#2443](https://github.com/OpenConceptLab/ocl_issues/issues/2443) |
 | 3a | Additional match filters | Not started | #18, #4 |
 | 3b | Match configuration | Not started | — |
 | 3c | Semantic search fallback | Not started | #43 |
@@ -77,30 +77,19 @@ ocl resolve --namespace /orgs/WHO/ URL...   # resolve with namespace context
 
 ---
 
-### Phase 2: Bulk Import
+### Phase 2: Bulk Import — Done
 
-High priority for automation — currently the only way to bulk-load content is via the API directly.
-
-**API endpoints:**
-
-- `POST /importers/bulk-import/` — submit bulk import (standard queue, parallel)
-- `POST /importers/bulk-import/:queue/` — submit to named queue (sequential)
-- `GET /importers/bulk-import/` — list active/recent imports
-- `GET /importers/bulk-import/:queue/` — list imports in specific queue
-- `DELETE /importers/bulk-import/?task_id=:taskId&signal=SIGKILL` — cancel import
-- `GET /manage/bulkimport/?task=:taskId&result=json` — get import results
-
-**Proposed CLI commands:**
+Implemented in [ocl_issues#2443](https://github.com/OpenConceptLab/ocl_issues/issues/2443) as `ocl import` subcommand group:
 
 ```bash
-ocl import FILE [--queue QUEUE]             # submit import from JSON file
-ocl import --stdin [--queue QUEUE]          # submit from stdin (pipe-friendly)
-ocl import list [--queue QUEUE]             # list active imports
-ocl import status TASK_ID                   # get import status/results
-ocl import cancel TASK_ID                   # cancel running import
+ocl import file FILE [--queue QUEUE] [--no-update] [--parallel N] [--wait]
+ocl import status TASK_ID [--wait]
+ocl import list [--queue QUEUE]
 ```
 
-**Demo scenario:** Create a small JSON import file with a few concepts and mappings, submit it, poll for completion, verify the imported content.
+Supports all server-side file formats: JSON/JSONL (.json, .jsonl), CSV (.csv), and OCL export ZIP (.zip). File upload via multipart form-data to `/importers/bulk-import/`.
+
+**Not yet implemented:** `ocl import --stdin` (pipe from stdin), `ocl import cancel TASK_ID`. Demo coverage (Theme 09) not yet added.
 
 ---
 

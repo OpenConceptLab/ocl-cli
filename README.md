@@ -265,6 +265,21 @@ ocl expansion get OWNER COLLECTION [--collection-version VERSION] [--expansion-i
 ocl expansion create OWNER COLLECTION VERSION
 ```
 
+### Bulk Import
+
+Submit files for bulk import. Supports JSON Lines (.json, .jsonl), CSV (.csv), and OCL export ZIP (.zip):
+
+```bash
+ocl import file data.jsonl                              # submit JSON Lines file
+ocl import file export.zip --queue myqueue              # submit to named queue
+ocl import file data.csv --no-update --parallel 3       # CSV, skip existing, 3 threads
+ocl import file data.jsonl --wait                       # submit and poll until complete
+ocl import status TASK_ID                               # check import status
+ocl import status TASK_ID --wait                        # poll until complete
+ocl import list                                         # list active/recent imports
+ocl import list --queue myqueue                         # list imports in specific queue
+```
+
 ### Task Management
 
 Monitor async operations on the server:
