@@ -894,6 +894,93 @@ def format_task_detail(data: dict) -> str:
     return "\n".join(lines) if lines else json.dumps(data, indent=2, default=str)
 
 
+def format_import_submit(data: dict) -> str:
+    """Format bulk import submission response."""
+    lines = []
+    lines.append("Import submitted.")
+    task_id = data.get("task") or data.get("id", "")
+    if task_id:
+        lines.append(f"  Task ID: {task_id}")
+    state = data.get("state", "")
+    if state:
+        lines.append(f"  State:   {state}")
+    queue = data.get("queue", "")
+    if queue:
+        lines.append(f"  Queue:   {queue}")
+    return "\n".join(lines)
+
+
+def format_import_list(data: list | dict) -> str:
+    """Format bulk import list response."""
+    # API returns a flat list, not paginated
+    if isinstance(data, dict):
+        results = data.get("results", [])
+    else:
+        results = data
+    if not results:
+        return "No active imports."
+
+    rows = []
+    for t in results:
+        task_id = str(t.get("task") or t.get("id", ""))
+        rows.append({
+            "id": task_id[:36] if len(task_id) > 36 else task_id,
+            "state": t.get("state", ""),
+            "queue": t.get("queue", ""),
+            "username": t.get("username", ""),
+            "started_at": str(t.get("started_at") or "")[:19],
+        })
+
+    return format_table(
+        rows,
+        ["id", "state", "queue", "username", "started_at"],
+        ["Task ID", "State", "Queue", "User", "Started"],
+    )
+
+
+def format_import_status(data: dict | list) -> str:
+    """Format bulk import task status."""
+    # The API may return a list with one item when queried by task ID
+    if isinstance(data, list):
+        if not data:
+            return "Task not found."
+        data = data[0]
+
+    lines = []
+    task_id = data.get("task") or data.get("id", "")
+    lines.append(f"Task ID:  {task_id}")
+    lines.append(f"State:    {data.get('state', '')}")
+    queue = data.get("queue", "")
+    if queue:
+        lines.append(f"Queue:    {queue}")
+    username = data.get("username", "")
+    if username:
+        lines.append(f"User:     {username}")
+    started = data.get("started_at", "")
+    if started:
+        lines.append(f"Started:  {str(started)[:19]}")
+    finished = data.get("finished_at", "")
+    if finished:
+        lines.append(f"Finished: {str(finished)[:19]}")
+    runtime = data.get("runtime", "")
+    if runtime:
+        lines.append(f"Runtime:  {runtime}")
+
+    summary = data.get("summary")
+    if summary and isinstance(summary, dict):
+        lines.append("\nSummary:")
+        for key, val in summary.items():
+            lines.append(f"  {key}: {val}")
+    elif summary:
+        lines.append(f"\nSummary: {summary}")
+
+    message = data.get("message")
+    if message:
+        lines.append(f"\nMessage: {message}")
+
+    return "\n".join(lines)
+
+
 def format_export_status(data: dict) -> str:
     """Format export status for human output."""
     status = data.get("status", "unknown")

@@ -1397,6 +1397,73 @@ class OCLAPIClient:
         self._require_auth()
         return self.get("/manage/bulkimport/")
 
+    # ── Import (new /importers/bulk-import/ endpoint) ─────────────
+
+    IMPORT_MIME_MAP = {
+        ".json": "application/json",
+        ".jsonl": "application/json",
+        ".csv": "text/csv",
+        ".zip": "application/zip",
+    }
+
+    def import_file(
+        self,
+        file_path: str,
+        queue: str | None = None,
+        update_if_exists: bool = True,
+        parallel: int | None = None,
+    ) -> dict:
+        """Upload a file for bulk import via /importers/bulk-import/.
+
+        Supports .json, .jsonl, .csv, and .zip (OCL export) files.
+        The API handles format detection and conversion server-side.
+        """
+        import os
+
+        self._require_auth()
+
+        endpoint = "/importers/bulk-import/"
+        if queue:
+            endpoint = f"/importers/bulk-import/{queue}/"
+
+        params = {"update_if_exists": "true" if update_if_exists else "false"}
+
+        filename = os.path.basename(file_path)
+        ext = os.path.splitext(filename)[1].lower()
+        mime = self.IMPORT_MIME_MAP.get(ext, "application/octet-stream")
+
+        data = {}
+        if parallel is not None:
+            data["parallel"] = str(parallel)
+
+        self._log_request("POST", endpoint, params)
+        with open(file_path, "rb") as f:
+            response = self.client.post(
+                endpoint,
+                files={"file": (filename, f, mime)},
+                data=data or None,
+                params=params,
+                timeout=120.0,
+            )
+        self._handle_error(response)
+        try:
+            return response.json()
+        except Exception:
+            return {"message": response.text}
+
+    def import_list(self, queue: str | None = None) -> Any:
+        """List active/recent bulk imports."""
+        self._require_auth()
+        endpoint = "/importers/bulk-import/"
+        if queue:
+            endpoint = f"/importers/bulk-import/{queue}/"
+        return self.get(endpoint)
+
+    def import_status(self, task_id: str) -> Any:
+        """Get status of a specific bulk import task."""
+        self._require_auth()
+        return self.get("/importers/bulk-import/", params={"task": task_id})
+
     # ── Cascade concept fetching (for pruning) ──────────────────────
 
     def fetch_cascade_children(self, concept_url: str) -> set[str]:
