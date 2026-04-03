@@ -63,6 +63,7 @@ def get(ctx, owner, repo_name, owner_type, repo_type, repo_version):
         result = client.get_repo(
             owner, repo_name, owner_type=owner_type,
             repo_type=repo_type, repo_version=repo_version,
+            include_summary=True,
         )
         output_result(ctx, result, format_repo_detail)
     except APIError as e:
