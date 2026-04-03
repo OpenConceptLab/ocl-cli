@@ -249,10 +249,18 @@ def format_repo_detail(data: dict) -> str:
     lines.append(f"Default Locale: {data.get('default_locale', '')}")
     lines.append(f"Supported Locales: {', '.join(data.get('supported_locales', []))}")
     lines.append(f"Public Access: {data.get('public_access', '')}")
-    if data.get("active_concepts") is not None:
-        lines.append(f"Active Concepts: {data['active_concepts']}")
-    if data.get("active_mappings") is not None:
-        lines.append(f"Active Mappings: {data['active_mappings']}")
+    # Counts: prefer summary sub-object, fall back to top-level fields
+    summary = data.get("summary") or {}
+    concepts = summary.get("active_concepts") or data.get("active_concepts")
+    mappings = summary.get("active_mappings") or data.get("active_mappings")
+    if concepts is not None:
+        lines.append(f"Active Concepts: {concepts:,}")
+    if mappings is not None:
+        lines.append(f"Active Mappings: {mappings:,}")
+    if data.get("is_processing") is not None:
+        lines.append(f"Processing: {data['is_processing']}")
+    if data.get("released") is not None:
+        lines.append(f"Released: {data['released']}")
     lines.append(f"Created: {data.get('created_on', '')}")
     lines.append(f"Updated: {data.get('updated_on', '')}")
     lines.append(f"URL: {data.get('url', '')}")

@@ -80,7 +80,6 @@ class OCLAPIClient:
 
         headers = {
             "Accept": "application/json",
-            "Content-Type": "application/json",
             "X-OCL-CLIENT": f"ocl-cli/{__version__}",
             "User-Agent": f"ocl-cli/{__version__} (httpx/{httpx.__version__}; python/{platform.python_version()})",
         }
@@ -393,10 +392,14 @@ class OCLAPIClient:
         owner_type: str = "orgs",
         repo_type: str = "source",
         repo_version: Optional[str] = None,
+        include_summary: bool = False,
     ) -> dict:
         """Get a specific repository, optionally at a version."""
         endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, repo_version)
-        return self.get(endpoint)
+        params = {}
+        if include_summary:
+            params["includeSummary"] = "true"
+        return self.get(endpoint, params=params or None)
 
     def get_repo_versions(
         self,
