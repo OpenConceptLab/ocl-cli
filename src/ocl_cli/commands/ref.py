@@ -18,11 +18,13 @@ def ref():
 @click.argument("collection")
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--collection-version", help="Collection version")
+@click.option("--repo-version", help="Alias for --collection-version", hidden=True)
 @click.option("--limit", default=20)
 @click.option("--page", default=1)
 @click.pass_context
-def ref_list(ctx, owner, collection, owner_type, collection_version, limit, page):
+def ref_list(ctx, owner, collection, owner_type, collection_version, repo_version, limit, page):
     """List references in a collection."""
+    collection_version = collection_version or repo_version
     client = ctx.obj["client"]
     try:
         result = client.list_collection_refs(

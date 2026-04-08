@@ -620,10 +620,13 @@ def format_match_results(data: dict, verbose: bool = False) -> str:
 
 def format_cascade_results(data: dict, tree_view: bool = True, verbose: bool = False) -> str:
     """Format cascade results with tree visualization."""
-    # Hierarchy view returns entry (dict with nested entries), flat view returns results (list)
+    # Hierarchy view returns entry as a dict (root with nested entries),
+    # flat view returns entry as a list of concept dicts.
     entry = data.get("entry")
     if entry and isinstance(entry, dict):
         results = [entry]
+    elif entry and isinstance(entry, list):
+        results = entry
     else:
         results = data.get("results", [])
     if not results:

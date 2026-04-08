@@ -147,9 +147,12 @@ class OCLAPIClient:
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
-    def get(self, endpoint: str, params: Optional[dict] = None) -> Any:
+    def get(self, endpoint: str, params: Optional[dict] = None, timeout: Optional[float] = None) -> Any:
         self._log_request("GET", endpoint, params)
-        response = self.client.get(endpoint, params=params)
+        kwargs: dict[str, Any] = {"params": params}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        response = self.client.get(endpoint, **kwargs)
         self._handle_error(response)
         return response.json()
 
@@ -722,7 +725,7 @@ class OCLAPIClient:
         if equivalency_map_type:
             params["equivalencyMapType"] = equivalency_map_type
 
-        result = self.get(endpoint, params=params or None)
+        result = self.get(endpoint, params=params or None, timeout=120.0)
         if isinstance(result, list):
             return {"resourceType": "Bundle", "type": "searchset", "entry": result}
         return result
