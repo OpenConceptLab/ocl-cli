@@ -1523,12 +1523,13 @@ class OCLAPIClient:
         endpoint = self._export_endpoint(owner, repo, version, owner_type, repo_type)
         response = self.request("HEAD", endpoint, timeout=45.0)
         code = response.status_code
-        if code == 200:
+        if code in (200, 302):
             filename = ""
             cd = response.headers.get("content-disposition", "")
             if "filename=" in cd:
                 filename = cd.split("filename=", 1)[1].strip().strip('"')
-            return {"status": "ready", "status_code": 200, "filename": filename}
+            url = response.headers.get("location", "")
+            return {"status": "ready", "status_code": code, "filename": filename, "url": url}
         elif code == 204:
             return {"status": "not_found", "status_code": 204}
         elif code == 208:
@@ -1605,6 +1606,14 @@ class OCLAPIClient:
         code = response.status_code
         if code == 200:
             return response
+        elif code == 302:
+            # API returns 302 redirect to S3 signed URL — follow it
+            redirect_url = response.headers.get("location", "")
+            if not redirect_url:
+                raise APIError("Export redirect missing Location header", status_code=302)
+            redirect_response = httpx.get(redirect_url, timeout=300.0)
+            redirect_response.raise_for_status()
+            return redirect_response
         elif code == 204:
             raise APIError(
                 "Export does not exist. Use 'ocl repo export create' first.",
