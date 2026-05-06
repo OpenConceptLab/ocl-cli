@@ -339,7 +339,7 @@ class OCLAPIClient:
 
     def list_user_orgs(self, username: str, limit: int = 100) -> dict:
         """List organizations a user belongs to."""
-        return self._get_list(f"/users/{username}/orgs/", params={"limit": limit})
+        return self._get_list(f"/users/{username}/orgs/", params={"limit": limit, "verbose": "true"})
 
     def get_org_members(self, org: str, limit: int = 100) -> dict:
         """List members of an organization."""
