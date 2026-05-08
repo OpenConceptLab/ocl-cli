@@ -54,4 +54,6 @@ pytest
 
 ## Issues / Tickets
 
-- Issues for `ocl-cli` are tracked at https://gitea.lab.jpayne.md/ocl/ocl-cli. Use `tea` CLI by default, and direct API access to Gitea is also available. Note: this repo will transition to the OCL GitHub in the future.
+- Issues for `ocl-cli` are tracked in the cross-repo tracker `OpenConceptLab/ocl_issues` on GitHub (not in this repo, and not on Gitea). Use `gh` CLI.
+- Code lives at `OpenConceptLab/ocl-cli` on GitHub. Changes go via feature branch + PR — never commit directly to `main`.
+- A pre-2026-05 archive of issues exists at `gitea.lab.jpayne.me/ocl/ocl-cli` (read-only / closed); do not file new tickets there.
