@@ -1,4 +1,4 @@
-"""Concept commands: search, get, create, update, retire, names, descriptions, extras, versions, match."""
+"""Concept commands: search, get, create, update, retire, delete, names, descriptions, extras, versions, match."""
 
 import json as json_lib
 import sys
@@ -260,6 +260,28 @@ def retire(ctx, owner, source, concept_id, owner_type, update_comment):
         result = client.retire_concept(owner, source, concept_id,
                                         owner_type=owner_type, update_comment=update_comment)
         output_result(ctx, result, format_concept_detail)
+    except APIError as e:
+        handle_api_error(e)
+
+
+@concept.command("delete")
+@click.argument("owner")
+@click.argument("source")
+@click.argument("concept_id")
+@click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.option("--yes", "confirmed", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def concept_delete(ctx, owner, source, concept_id, owner_type, confirmed):
+    """Hard-delete a concept. Irreversible. Requires staff token."""
+    if not confirmed:
+        click.confirm(
+            f"Hard-delete concept '{owner}/{source}/{concept_id}'? This cannot be undone",
+            abort=True,
+        )
+    client = ctx.obj["client"]
+    try:
+        client.delete_concept(owner, source, concept_id, owner_type=owner_type)
+        click.echo(f"Concept '{owner}/{source}/{concept_id}' deleted.")
     except APIError as e:
         handle_api_error(e)
 

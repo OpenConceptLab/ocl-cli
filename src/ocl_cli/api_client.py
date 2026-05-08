@@ -194,9 +194,9 @@ class OCLAPIClient:
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     )
-    def delete(self, endpoint: str) -> Any:
-        self._log_request("DELETE", endpoint)
-        response = self.client.delete(endpoint)
+    def delete(self, endpoint: str, params: Optional[dict] = None) -> Any:
+        self._log_request("DELETE", endpoint, params)
+        response = self.client.delete(endpoint, params=params)
         self._handle_error(response)
         if response.status_code == 204:
             return {}
@@ -1011,6 +1011,19 @@ class OCLAPIClient:
             retired=True,
         )
 
+    def delete_concept(
+        self,
+        owner: str,
+        source: str,
+        concept_id: str,
+        owner_type: str = "orgs",
+    ) -> dict:
+        """Hard-delete a concept (?hardDelete=true). Requires staff token."""
+        self._require_auth()
+        _validate_owner_type(owner_type)
+        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/"
+        return self.delete(endpoint, params={"hardDelete": "true"})
+
     def add_concept_name(
         self,
         owner: str,
@@ -1166,6 +1179,19 @@ class OCLAPIClient:
             update_comment=update_comment,
             retired=True,
         )
+
+    def delete_mapping(
+        self,
+        owner: str,
+        source: str,
+        mapping_id: str,
+        owner_type: str = "orgs",
+    ) -> dict:
+        """Hard-delete a mapping (?hardDelete=true). Requires staff token."""
+        self._require_auth()
+        _validate_owner_type(owner_type)
+        endpoint = f"/{owner_type}/{owner}/sources/{source}/mappings/{mapping_id}/"
+        return self.delete(endpoint, params={"hardDelete": "true"})
 
     def add_collection_ref(
         self,

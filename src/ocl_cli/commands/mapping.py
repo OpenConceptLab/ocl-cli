@@ -193,3 +193,25 @@ def retire(ctx, owner, source, mapping_id, owner_type, update_comment):
         output_result(ctx, result, format_mapping_detail)
     except APIError as e:
         handle_api_error(e)
+
+
+@mapping.command("delete")
+@click.argument("owner")
+@click.argument("source")
+@click.argument("mapping_id")
+@click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.option("--yes", "confirmed", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def mapping_delete(ctx, owner, source, mapping_id, owner_type, confirmed):
+    """Hard-delete a mapping. Irreversible. Requires staff token."""
+    if not confirmed:
+        click.confirm(
+            f"Hard-delete mapping '{owner}/{source}/{mapping_id}'? This cannot be undone",
+            abort=True,
+        )
+    client = ctx.obj["client"]
+    try:
+        client.delete_mapping(owner, source, mapping_id, owner_type=owner_type)
+        click.echo(f"Mapping '{owner}/{source}/{mapping_id}' deleted.")
+    except APIError as e:
+        handle_api_error(e)
