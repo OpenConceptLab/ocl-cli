@@ -214,6 +214,7 @@ ocl concept extras OWNER SOURCE CONCEPT_ID
 ocl concept create OWNER SOURCE CONCEPT_ID --concept-class CLASS --name NAME [--datatype TYPE]
 ocl concept update OWNER SOURCE CONCEPT_ID [--concept-class CLASS] [--datatype TYPE]
 ocl concept retire OWNER SOURCE CONCEPT_ID
+ocl concept delete OWNER SOURCE CONCEPT_ID [--yes]      # hard delete; staff only
 ocl concept name-add OWNER SOURCE CONCEPT_ID NAME --locale LOCALE
 ocl concept description-add OWNER SOURCE CONCEPT_ID TEXT --locale LOCALE
 ocl concept extra-set OWNER SOURCE CONCEPT_ID KEY VALUE
@@ -239,6 +240,7 @@ ocl mapping versions OWNER SOURCE MAPPING_ID
 ocl mapping create OWNER SOURCE --map-type TYPE --from-concept-url URL --to-concept-url URL
 ocl mapping update OWNER SOURCE MAPPING_ID [--map-type TYPE]
 ocl mapping retire OWNER SOURCE MAPPING_ID
+ocl mapping delete OWNER SOURCE MAPPING_ID [--yes]      # hard delete; staff only
 ```
 
 ### Cascade
