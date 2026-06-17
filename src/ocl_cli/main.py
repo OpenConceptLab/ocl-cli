@@ -96,5 +96,7 @@ cli.add_command(import_cmd)
 
 # Utility commands
 from ocl_cli.commands.reference import reference  # noqa: E402
+from ocl_cli.commands.index import index  # noqa: E402
 
 cli.add_command(reference)
+cli.add_command(index)
