@@ -313,6 +313,42 @@ def name_add(ctx, owner, source, concept_id, name_text, locale, name_type,
         handle_api_error(e)
 
 
+@concept.command("name-update")
+@click.argument("owner")
+@click.argument("source")
+@click.argument("concept_id")
+@click.argument("name_uuid")
+@click.option("--name", "name_text", help="New name text")
+@click.option("--locale", help="New locale code")
+@click.option("--name-type", help="New name type")
+@click.option("--locale-preferred/--no-locale-preferred", default=None, help="Set or clear locale preferred flag")
+@click.option("--external-id", help="External identifier")
+@click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
+@click.pass_context
+def name_update(ctx, owner, source, concept_id, name_uuid, name_text, locale, name_type,
+                locale_preferred, external_id, owner_type):
+    """Update a name on a concept. Use 'concept names --verbose' to find the name UUID."""
+    client = ctx.obj["client"]
+    if not any([name_text, locale, name_type, locale_preferred is not None, external_id]):
+        click.echo("No fields to update. Use --name, --locale, --name-type, --locale-preferred, or --external-id.", err=True)
+        sys.exit(1)
+    try:
+        result = client.update_concept_name(
+            owner, source, concept_id, name_uuid,
+            owner_type=owner_type,
+            name=name_text,
+            locale=locale,
+            name_type=name_type,
+            locale_preferred=locale_preferred,
+            external_id=external_id,
+        )
+        def _fmt_name(d):
+            return f"Updated name: {d.get('name', '')} ({d.get('locale', '')}, {d.get('name_type', '')})"
+        output_result(ctx, result, _fmt_name)
+    except APIError as e:
+        handle_api_error(e)
+
+
 @concept.command("description-add")
 @click.argument("owner")
 @click.argument("source")
