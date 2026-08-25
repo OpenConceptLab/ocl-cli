@@ -55,5 +55,6 @@ pytest
 ## Issues / Tickets
 
 - Issues for `ocl-cli` are tracked in the cross-repo tracker `OpenConceptLab/ocl_issues` on GitHub (not in this repo, and not on Gitea). Use `gh` CLI.
+- **Contribution conventions are org-wide.** All OCL repos inherit [`OpenConceptLab/.github/CONTRIBUTING.md`](https://github.com/OpenConceptLab/.github/blob/main/CONTRIBUTING.md) — ticket-first, PR template, `type/` labels, no direct pushes to `main`. **In short: every PR links an issue** — use `closes OpenConceptLab/ocl_issues#N` on the resolving commit (bare `#N` for partial work). Heads-up for agents: the org PR template only auto-fills in the GitHub web UI, so when opening PRs via `gh`, add the `Closes #N` line to the PR body yourself.
 - Code lives at `OpenConceptLab/ocl-cli` on GitHub. Changes go via feature branch + PR — never commit directly to `main`.
 - A pre-2026-05 archive of issues exists at `gitea.lab.jpayne.me/ocl/ocl-cli` (read-only / closed); do not file new tickets there.
