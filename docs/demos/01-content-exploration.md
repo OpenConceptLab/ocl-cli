@@ -9,12 +9,13 @@ Multi-step CLI scenarios that exercise real-world workflows against the producti
 **Steps:**
 1. `ocl org get CIEL` — org profile
 2. `ocl org repos CIEL` — sources and collections owned by CIEL
-3. `ocl concept search malaria --owner CIEL --repo CIEL` — find a concept
-4. `ocl concept names CIEL CIEL 116128` — all translations (11 names across 9 languages)
-5. `ocl mapping search --owner CIEL --repo CIEL --from-concept 138041 --verbose` — outbound mappings with target source display
-6. `ocl mapping get CIEL CIEL 162820` — full detail showing from/to source URLs and codes
+3. `ocl concept list --owner CIEL --repo CIEL --limit 3` — browse concepts without needing to know a search term
+4. `ocl concept search malaria --owner CIEL --repo CIEL` — find a concept
+5. `ocl concept names CIEL CIEL 116128` — all translations (11 names across 9 languages)
+6. `ocl mapping search --owner CIEL --repo CIEL --from-concept 138041 --verbose` — outbound mappings with target source display
+7. `ocl mapping get CIEL CIEL 162820` — full detail showing from/to source URLs and codes
 
-**Validates:** org lookup, org repo listing, concept search, name listing, mapping search with target source display, mapping detail.
+**Validates:** org lookup, org repo listing, concept browsing, concept search, name listing, mapping search with target source display, mapping detail.
 
 ---
 

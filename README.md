@@ -204,6 +204,7 @@ ocl repo export download CIEL CIEL v2026-03-23 --type source -o CIEL_v2026-03-23
 ```bash
 # Search & browse
 ocl concept search [QUERY] [--owner OWNER] [--repo REPO] [--concept-class CLASS]
+ocl concept list [--owner OWNER] [--repo REPO] [--repo-type source|collection]
 ocl concept get OWNER SOURCE CONCEPT_ID [--repo-version VERSION] [--include-mappings] [--include-inverse-mappings]
 ocl concept versions OWNER SOURCE CONCEPT_ID
 ocl concept names OWNER SOURCE CONCEPT_ID [--verbose]

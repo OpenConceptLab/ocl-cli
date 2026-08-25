@@ -8,9 +8,14 @@ import click
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
 from ocl_cli.output import (
-    output_result, format_concept_list, format_concept_detail,
-    format_version_list, format_names_list, format_descriptions_list,
-    format_extras, format_match_results,
+    format_concept_detail,
+    format_concept_list,
+    format_descriptions_list,
+    format_extras,
+    format_match_results,
+    format_names_list,
+    format_version_list,
+    output_result,
 )
 
 
@@ -46,6 +51,45 @@ def search(ctx, query, owner, owner_type, repo, repo_type, repo_version, concept
            datatype, locale, include_retired, include_mappings, include_inverse_mappings,
            updated_since, sort, verbose, limit, page):
     """Search for concepts globally or within a repository."""
+    _search_concepts(
+        ctx, query, owner, owner_type, repo, repo_type, repo_version, concept_class,
+        datatype, locale, include_retired, include_mappings, include_inverse_mappings,
+        updated_since, sort, verbose, limit, page,
+    )
+
+
+@concept.command("list")
+@click.option("--owner", help="Filter by owner")
+@click.option("--owner-type", type=click.Choice(["users", "orgs"]))
+@click.option("--repo", help="Filter by source/collection")
+@click.option("--repo-type", type=click.Choice(["source", "collection"]), default="source")
+@click.option("--repo-version", help="Repository version")
+@click.option("--concept-class", help="Filter by concept class")
+@click.option("--datatype", help="Filter by datatype")
+@click.option("--locale", help="Filter by locale")
+@click.option("--include-retired", is_flag=True, help="Include retired concepts")
+@click.option("--include-mappings", is_flag=True, help="Include mappings in results")
+@click.option("--include-inverse-mappings", is_flag=True)
+@click.option("--updated-since", help="Filter by update date (YYYY-MM-DD)")
+@click.option("--sort", help="Sort field (prefix with - for descending)")
+@click.option("--verbose", is_flag=True, help="Include extra detail")
+@click.option("--limit", default=20, help="Results per page")
+@click.option("--page", default=1, help="Page number")
+@click.pass_context
+def list_(ctx, owner, owner_type, repo, repo_type, repo_version, concept_class,
+          datatype, locale, include_retired, include_mappings, include_inverse_mappings,
+          updated_since, sort, verbose, limit, page):
+    """List concepts globally or within a repository."""
+    _search_concepts(
+        ctx, None, owner, owner_type, repo, repo_type, repo_version, concept_class,
+        datatype, locale, include_retired, include_mappings, include_inverse_mappings,
+        updated_since, sort, verbose, limit, page,
+    )
+
+
+def _search_concepts(ctx, query, owner, owner_type, repo, repo_type, repo_version, concept_class,
+                     datatype, locale, include_retired, include_mappings, include_inverse_mappings,
+                     updated_since, sort, verbose, limit, page):
     client = ctx.obj["client"]
     try:
         result = client.search_concepts(
