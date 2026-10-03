@@ -81,6 +81,16 @@ class RepoVersionCommandTest(unittest.TestCase):
             self.assertEqual(client.calls, [])
             self.assertIn("--match-algorithms applies to sources only", result.stderr)
 
+    def test_empty_match_algorithms_are_refused(self):
+        for command in ("version-create", "version-update"):
+            for value in ("", "  ", ",,", " , "):
+                client, result = self.invoke(
+                    command, "CIEL", "CIEL", "v1", "--match-algorithms", value, exit_code=2
+                )
+
+                self.assertEqual(client.calls, [])
+                self.assertIn("--match-algorithms needs at least one algorithm", result.stderr)
+
     def test_version_update_without_match_algorithms_does_not_warn(self):
         _, result = self.invoke("version-update", "CIEL", "CIEL", "v2026-10-01", "--released")
 

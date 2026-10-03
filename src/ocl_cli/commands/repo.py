@@ -182,7 +182,11 @@ def _split_match_algorithms(value, repo_type):
         return None
     if repo_type != "source":
         raise click.UsageError("--match-algorithms applies to sources only")
-    return [algorithm.strip() for algorithm in value.split(",") if algorithm.strip()]
+    algorithms = [algorithm.strip() for algorithm in value.split(",") if algorithm.strip()]
+    if not algorithms:
+        # an empty value (e.g. an unset shell variable) would otherwise clear them: opting out is `es`
+        raise click.UsageError("--match-algorithms needs at least one algorithm, e.g. es or es,llm")
+    return algorithms
 
 
 @repo.command("version-create")
