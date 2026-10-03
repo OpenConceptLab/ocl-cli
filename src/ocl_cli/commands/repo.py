@@ -169,6 +169,20 @@ def update(ctx, owner, repo_name, repo_type, owner_type, new_name, description,
         handle_api_error(e)
 
 
+VERSION_UPDATE_MATCH_ALGORITHMS_WARNING = (
+    "Warning: changing an existing version's match algorithms makes the server reindex its "
+    "concepts. Adding llm embeds them, which can take hours for a large repository; removing it "
+    "can drop their vectors. To vectorize a release, set it when you create the version instead: "
+    "repo version-create --match-algorithms es,llm"
+)
+
+
+def _split_match_algorithms(value):
+    if value is None:
+        return None
+    return [algorithm.strip() for algorithm in value.split(",") if algorithm.strip()]
+
+
 @repo.command("version-create")
 @click.argument("owner")
 @click.argument("repo_name")
@@ -177,14 +191,22 @@ def update(ctx, owner, repo_name, repo_type, owner_type, new_name, description,
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--description", help="Version description")
 @click.option("--released/--no-released", default=True, help="Mark as released (default: true)")
+@click.option(
+    "--match-algorithms", default=None,
+    help="Comma-separated match algorithms (e.g. es,llm). Omit to let the server decide: a new "
+         "source version is vectorized when HEAD or the latest release is.",
+)
 @click.pass_context
-def version_create(ctx, owner, repo_name, version_id, repo_type, owner_type, description, released):
+def version_create(
+    ctx, owner, repo_name, version_id, repo_type, owner_type, description, released, match_algorithms
+):
     """Create a new repository version (snapshot)."""
     client = ctx.obj["client"]
     try:
         result = client.create_repo_version(
             owner, repo_name, version_id, owner_type=owner_type,
             repo_type=repo_type, description=description, released=released,
+            match_algorithms=_split_match_algorithms(match_algorithms),
         )
         output_result(ctx, result, format_repo_detail)
     except APIError as e:
@@ -211,7 +233,8 @@ def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, des
         if released is not None:
             fields["released"] = released
         if match_algorithms is not None:
-            fields["match_algorithms"] = [a.strip() for a in match_algorithms.split(",")]
+            fields["match_algorithms"] = _split_match_algorithms(match_algorithms)
+            click.echo(VERSION_UPDATE_MATCH_ALGORITHMS_WARNING, err=True)
         result = client.update_repo_version(
             owner, repo_name, version_id, owner_type=owner_type,
             repo_type=repo_type, **fields,

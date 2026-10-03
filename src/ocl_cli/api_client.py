@@ -914,13 +914,20 @@ class OCLAPIClient:
         repo_type: str = "source",
         description: Optional[str] = None,
         released: bool = True,
+        match_algorithms: Optional[list[str]] = None,
     ) -> dict:
-        """Create a new repository version (snapshot)."""
+        """Create a new repository version (snapshot).
+
+        Without match_algorithms, the server decides: a new source version is vectorized
+        (``llm``) when the source's HEAD or its latest release is.
+        """
         self._require_auth()
         endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, suffix="versions/")
         body: dict[str, Any] = {"id": version_id, "released": released}
         if description:
             body["description"] = description
+        if match_algorithms is not None:
+            body["match_algorithms"] = match_algorithms
         return self.post(endpoint, json=body)
 
     def update_repo_version(

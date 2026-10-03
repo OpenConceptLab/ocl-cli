@@ -161,12 +161,17 @@ ocl repo versions OWNER REPO [--type source|collection] [--updated-since YYYY-MM
 # Create & update
 ocl repo create OWNER REPO_ID NAME --type source|collection [options]
 ocl repo update OWNER REPO [--name NAME] [--description DESC]
-ocl repo version-create OWNER REPO VERSION_ID [--released/--no-released]
+ocl repo version-create OWNER REPO VERSION_ID [--released/--no-released] [--match-algorithms es,llm]
 ocl repo version-update OWNER REPO VERSION_ID [--released/--no-released] [--match-algorithms es,llm]
 
-# Enable vectorized matching on a new release
-ocl repo version-update CIEL CIEL v2026-03-23 --match-algorithms es,llm
+# Create a vectorized release (semantic matching). Without --match-algorithms, the server
+# vectorizes a new source version when its HEAD or latest release is vectorized.
+ocl repo version-create Regenstrief LOINC 2.82 --match-algorithms es,llm
+```
 
+Set `--match-algorithms` when you create a version rather than with `version-update` afterwards. Changing an existing version's match algorithms makes the server reindex its concepts: adding `llm` embeds them, which can take hours for a large repository, and removing it can drop their vectors. `version-update --match-algorithms` prints a warning to that effect.
+
+```bash
 # Custom attributes
 ocl repo extras OWNER REPO
 ocl repo extra-set OWNER REPO KEY VALUE
