@@ -177,9 +177,11 @@ VERSION_UPDATE_MATCH_ALGORITHMS_WARNING = (
 )
 
 
-def _split_match_algorithms(value):
+def _split_match_algorithms(value, repo_type):
     if value is None:
         return None
+    if repo_type != "source":
+        raise click.UsageError("--match-algorithms applies to sources only")
     return [algorithm.strip() for algorithm in value.split(",") if algorithm.strip()]
 
 
@@ -193,8 +195,8 @@ def _split_match_algorithms(value):
 @click.option("--released/--no-released", default=True, help="Mark as released (default: true)")
 @click.option(
     "--match-algorithms", default=None,
-    help="Comma-separated match algorithms (e.g. es,llm). Omit to let the server decide: a new "
-         "source version is vectorized when HEAD or the latest release is.",
+    help="Sources only. Comma-separated match algorithms (e.g. es,llm). Omit to let the server "
+         "decide: a new source version is vectorized when HEAD or the latest release is.",
 )
 @click.pass_context
 def version_create(
@@ -202,11 +204,12 @@ def version_create(
 ):
     """Create a new repository version (snapshot)."""
     client = ctx.obj["client"]
+    match_algorithms = _split_match_algorithms(match_algorithms, repo_type)
     try:
         result = client.create_repo_version(
             owner, repo_name, version_id, owner_type=owner_type,
             repo_type=repo_type, description=description, released=released,
-            match_algorithms=_split_match_algorithms(match_algorithms),
+            match_algorithms=match_algorithms,
         )
         output_result(ctx, result, format_repo_detail)
     except APIError as e:
@@ -221,7 +224,9 @@ def version_create(
 @click.option("--owner-type", type=click.Choice(["users", "orgs"]), default="orgs")
 @click.option("--description", help="Version description")
 @click.option("--released/--no-released", default=None, help="Released status")
-@click.option("--match-algorithms", default=None, help="Comma-separated match algorithms (e.g. es,llm)")
+@click.option(
+    "--match-algorithms", default=None, help="Sources only. Comma-separated match algorithms (e.g. es,llm)"
+)
 @click.pass_context
 def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, description, released, match_algorithms):
     """Update a repository version."""
@@ -233,7 +238,7 @@ def version_update(ctx, owner, repo_name, version_id, repo_type, owner_type, des
         if released is not None:
             fields["released"] = released
         if match_algorithms is not None:
-            fields["match_algorithms"] = _split_match_algorithms(match_algorithms)
+            fields["match_algorithms"] = _split_match_algorithms(match_algorithms, repo_type)
             click.echo(VERSION_UPDATE_MATCH_ALGORITHMS_WARNING, err=True)
         result = client.update_repo_version(
             owner, repo_name, version_id, owner_type=owner_type,

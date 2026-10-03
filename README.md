@@ -169,7 +169,7 @@ ocl repo version-update OWNER REPO VERSION_ID [--released/--no-released] [--matc
 ocl repo version-create Regenstrief LOINC 2.82 --match-algorithms es,llm
 ```
 
-Set `--match-algorithms` when you create a version rather than with `version-update` afterwards. Changing an existing version's match algorithms makes the server reindex its concepts: adding `llm` embeds them, which can take hours for a large repository, and removing it can drop their vectors. `version-update --match-algorithms` prints a warning to that effect.
+`--match-algorithms` applies to sources only. Set it when you create a version rather than with `version-update` afterwards. Changing an existing version's match algorithms makes the server reindex its concepts: adding `llm` embeds them, which can take hours for a large repository, and removing it can drop their vectors. `version-update --match-algorithms` prints a warning to that effect.
 
 ```bash
 # Custom attributes

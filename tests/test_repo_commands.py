@@ -1,3 +1,4 @@
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -33,14 +34,14 @@ class FakeConfig:
 
 
 class RepoVersionCommandTest(unittest.TestCase):
-    def invoke(self, *args):
+    def invoke(self, *args, exit_code=0):
         client = FakeClient()
         with (
             patch("ocl_cli.main.CLIConfig.load", return_value=FakeConfig()),
             patch("ocl_cli.main.OCLAPIClient", return_value=client),
         ):
             result = CliRunner().invoke(cli, ["--json", "repo", *args])
-        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.exit_code, exit_code, result.output)
         return client, result
 
     def test_version_create_sends_match_algorithms(self):
@@ -68,6 +69,17 @@ class RepoVersionCommandTest(unittest.TestCase):
         self.assertEqual(kwargs["match_algorithms"], ["es", "llm"])
         self.assertIn("Warning", result.stderr)
         self.assertIn("version-create --match-algorithms", result.stderr)
+        self.assertEqual(json.loads(result.stdout), {"id": "v2026-10-01", "version": "v2026-10-01"})
+
+    def test_match_algorithms_are_refused_for_collections(self):
+        for command in ("version-create", "version-update"):
+            client, result = self.invoke(
+                command, "CIEL", "Starter", "v1", "--type", "collection", "--match-algorithms", "es,llm",
+                exit_code=2,
+            )
+
+            self.assertEqual(client.calls, [])
+            self.assertIn("--match-algorithms applies to sources only", result.stderr)
 
     def test_version_update_without_match_algorithms_does_not_warn(self):
         _, result = self.invoke("version-update", "CIEL", "CIEL", "v2026-10-01", "--released")
