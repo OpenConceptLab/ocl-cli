@@ -9,6 +9,15 @@ from ocl_cli.api_client import OCLAPIClient
 from ocl_cli.main import cli
 
 
+def make_runner():
+    # Click 8.1 mixes stderr into stdout unless told not to; 8.2 dropped mix_stderr and always
+    # keeps them apart. Both satisfy click>=8.1.0.
+    try:
+        return CliRunner(mix_stderr=False)
+    except TypeError:
+        return CliRunner()
+
+
 class FakeClient:
     def __init__(self):
         self.calls = []
@@ -40,7 +49,7 @@ class RepoVersionCommandTest(unittest.TestCase):
             patch("ocl_cli.main.CLIConfig.load", return_value=FakeConfig()),
             patch("ocl_cli.main.OCLAPIClient", return_value=client),
         ):
-            result = CliRunner().invoke(cli, ["--json", "repo", *args])
+            result = make_runner().invoke(cli, ["--json", "repo", *args])
         self.assertEqual(result.exit_code, exit_code, result.output)
         return client, result
 
