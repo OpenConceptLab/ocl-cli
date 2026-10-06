@@ -919,7 +919,7 @@ class OCLAPIClient:
         """Create a new repository version (snapshot).
 
         Without match_algorithms, the server decides: a new source version is vectorized
-        (``llm``) when the source's HEAD or its latest release is.
+        (``llm``) when the source's HEAD is.
         """
         self._require_auth()
         endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, suffix="versions/")

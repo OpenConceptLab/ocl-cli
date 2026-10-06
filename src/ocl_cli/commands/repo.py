@@ -200,7 +200,7 @@ def _split_match_algorithms(value, repo_type):
 @click.option(
     "--match-algorithms", default=None,
     help="Sources only. Comma-separated match algorithms (e.g. es,llm). Omit to let the server "
-         "decide: a new source version is vectorized when HEAD or the latest release is.",
+         "decide: a new source version is vectorized when HEAD is.",
 )
 @click.pass_context
 def version_create(
