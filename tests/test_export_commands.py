@@ -149,6 +149,15 @@ class ExportDownloadCommandTest(unittest.TestCase):
             with open("important.txt") as f:
                 self.assertEqual(f.read(), "keep")
 
+    def test_a_name_too_long_for_the_filesystem_asks_for_output(self):
+        long_name = "orgs_PIH_sources_" + "x" * 300 + ".zip"
+        response = export_response(headers={"content-disposition": f'attachment; filename="{long_name}"'})
+
+        files, result = self.download(response, exit_code=1)
+
+        self.assertEqual(files, [])
+        self.assertIn("too long", result.stderr)
+
     def test_a_missing_output_directory_is_an_error(self):
         files, result = self.download(export_response(), "-o", "missing/", exit_code=1)
 

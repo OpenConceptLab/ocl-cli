@@ -1,5 +1,6 @@
 """Export commands: status, create, delete, download."""
 
+import errno
 import os
 import re
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -181,6 +182,12 @@ def download(ctx, owner, repo, version, repo_type, owner_type, output_path):
                 f.write(response.content)
         except FileExistsError:
             raise click.ClickException(f"{output_path} already exists. Remove it, or pass -o FILE to overwrite.") from None
+        except OSError as e:
+            if mode != "xb" or e.errno != errno.ENAMETOOLONG:
+                raise
+            raise click.ClickException(
+                "The export's name is too long for this filesystem. Pass -o FILE to choose a name."
+            ) from None
 
         size = len(response.content)
         click.echo(f"Saved to {output_path} ({size:,} bytes)", err=True)
