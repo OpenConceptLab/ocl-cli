@@ -207,7 +207,7 @@ ocl repo export download CIEL CIEL v2026-03-23 --type source
 # Saved to orgs_CIEL_sources_CIEL_v2026-03-23_<lastUpdated>.zip
 ```
 
-The API names every export `[owner-type]_[owner]_[repo-type]_[repo]_[version]_[expansion]_[lastUpdated].zip`; collection exports include the expansion.
+The API names exports `[owner-type]_[owner]_[repo-type]_[repo]_[version]_[expansion]_[lastUpdated].zip`, with the expansion when the export has one. An older export the API can't name keeps its storage name; if no usable name comes back at all, the command asks for `-o FILE`.
 
 ### Concepts
 

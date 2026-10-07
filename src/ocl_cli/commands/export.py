@@ -82,26 +82,40 @@ def delete(ctx, owner, repo, version, repo_type, owner_type):
         handle_api_error(e)
 
 
-# The API names exports with only these characters, so anything else isn't an export name.
-SAFE_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
+# OCL names (and so export and storage names) use only these characters; a leading '.' is never a name.
+SAFE_FILENAME = re.compile(r"[A-Za-z0-9_@-][A-Za-z0-9._@-]*")
 WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
                         *(f"LPT{i}" for i in range(1, 10))}
+DISPOSITION_PARAM = re.compile(r'\s*;\s*([^\s=;]+)\s*=\s*("(?:[^"\\]|\\.)*"|[^;]*)')
+
+
+def _disposition_params(value):
+    """Parameters of a Content-Disposition value, lower-cased names, quoted values unescaped."""
+    params = {}
+    pos = value.find(";")
+    while 0 <= pos < len(value):
+        match = DISPOSITION_PARAM.match(value, pos)
+        if not match:
+            break
+        raw = match.group(2).strip()
+        if raw.startswith('"') and raw.endswith('"') and len(raw) > 1:
+            raw = re.sub(r"\\(.)", r"\1", raw[1:-1])
+        params.setdefault(match.group(1).lower(), raw)
+        pos = match.end()
+    return params
 
 
 def _filename_from_content_disposition(value):
     """The filename in a Content-Disposition value, preferring filename* (RFC 6266), or None."""
-    if not value:
-        return None
-    extended = re.search(r"(?:^|;)\s*filename\*\s*=\s*([^';\s]+)'[^']*'([^;\s]+)", value, re.I)
-    if extended:
+    params = _disposition_params(value or "")
+    extended = params.get("filename*", "")
+    if extended.count("'") >= 2:
+        charset, _, encoded = extended.split("'", 2)
         try:
-            return unquote(extended.group(2), encoding=extended.group(1), errors="strict")
+            return unquote(encoded, encoding=charset or "utf-8", errors="strict")
         except (LookupError, UnicodeDecodeError):
             pass
-    plain = re.search(r'(?:^|;)\s*filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;\s]+))', value, re.I)
-    if plain:
-        return re.sub(r"\\(.)", r"\1", plain.group(1)) if plain.group(1) is not None else plain.group(2)
-    return None
+    return params.get("filename")
 
 
 def _usable_filename(name):

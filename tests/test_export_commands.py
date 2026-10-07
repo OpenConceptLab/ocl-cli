@@ -117,6 +117,20 @@ class ExportDownloadCommandTest(unittest.TestCase):
 
                 self.assertEqual(files, [f"./{API_NAME}"])
 
+    def test_quoted_parameters_can_contain_semicolons(self):
+        disposition = 'attachment; note="x; filename=wrong.zip; y"; filename="right.zip"'
+
+        files, _ = self.download(export_response(headers={"content-disposition": disposition}))
+
+        self.assertEqual(files, ["./right.zip"])
+
+    def test_storage_name_may_start_with_an_underscore(self):
+        url = "https://exports.example.test/orgs/_PIH/_PIH_PIH_v1.8.24.zip?X-Amz-Signature=abc"
+
+        files, _ = self.download(export_response(url=url))
+
+        self.assertEqual(files, ["./_PIH_PIH_v1.8.24.zip"])
+
     def test_an_existing_file_is_not_overwritten(self):
         response = export_response(headers={"content-disposition": f'attachment; filename="{API_NAME}"'})
         runner = make_runner()
