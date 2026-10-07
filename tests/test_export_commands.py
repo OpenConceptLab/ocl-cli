@@ -94,12 +94,52 @@ class ExportDownloadCommandTest(unittest.TestCase):
 
         self.assertEqual(files, ["./mine.zip"])
 
-    def test_name_cannot_leave_the_target_directory(self):
+    def test_a_path_in_the_name_is_rejected(self):
         response = export_response(headers={"content-disposition": 'attachment; filename="../../evil.zip"'})
 
         files, _ = self.download(response, "-o", "downloads")
 
-        self.assertEqual(files, ["./downloads/evil.zip"])
+        self.assertEqual(files, ["./downloads/PIH_PIH_v1.8.24.2026-09-30_123456.zip"])
+
+    def test_filename_star_wins_over_filename(self):
+        disposition = f"attachment; filename=\"fallback.zip\"; filename*=UTF-8''{API_NAME}"
+
+        files, _ = self.download(export_response(headers={"content-disposition": disposition}))
+
+        self.assertEqual(files, [f"./{API_NAME}"])
+
+    def test_unusable_header_name_falls_back_to_the_signed_url(self):
+        url = f"{SIGNED_URL}&response-content-disposition=attachment%3B%20filename%3D%22{API_NAME}%22"
+        for disposition in ("attachment; filename*=UTF-8''evil%00.zip", 'attachment; filename="NUL.zip"',
+                            'attachment; filename="victim.txt:stream.zip"', "attachment; filename*=UTF-8''%FF.zip"):
+            with self.subTest(disposition=disposition):
+                files, _ = self.download(export_response(url=url, headers={"content-disposition": disposition}))
+
+                self.assertEqual(files, [f"./{API_NAME}"])
+
+    def test_an_existing_file_is_not_overwritten(self):
+        response = export_response(headers={"content-disposition": f'attachment; filename="{API_NAME}"'})
+        runner = make_runner()
+        with (
+            runner.isolated_filesystem(),
+            patch("ocl_cli.main.CLIConfig.load", return_value=FakeConfig()),
+            patch("ocl_cli.main.OCLAPIClient", return_value=FakeExportClient(response)),
+        ):
+            with open("important.txt", "w") as f:
+                f.write("keep")
+            os.symlink("important.txt", API_NAME)
+            result = runner.invoke(cli, ["repo", "export", "download", "PIH", "PIH", "1.8.24", "--type", "source"])
+
+            self.assertEqual(result.exit_code, 1, result.output)
+            self.assertIn("already exists", result.stderr)
+            with open("important.txt") as f:
+                self.assertEqual(f.read(), "keep")
+
+    def test_a_missing_output_directory_is_an_error(self):
+        files, result = self.download(export_response(), "-o", "missing/", exit_code=1)
+
+        self.assertEqual(files, [])
+        self.assertIn("doesn't exist", result.stderr)
 
     def test_unnamed_export_asks_for_output(self):
         response = export_response(url="https://api.example.test/orgs/PIH/sources/PIH/1.8.24/export/")
@@ -108,3 +148,22 @@ class ExportDownloadCommandTest(unittest.TestCase):
 
         self.assertEqual(files, [])
         self.assertIn("Pass -o FILE", result.stderr)
+
+
+def test_export_download_follows_the_redirect_to_the_named_file(httpx_mock):
+    from ocl_cli.api_client import OCLAPIClient
+    from ocl_cli.commands.export import export_filename
+
+    httpx_mock.add_response(
+        method="GET", url="https://api.example.test/orgs/PIH/sources/PIH/1.8.24/export/",
+        status_code=302, headers={"location": SIGNED_URL},
+    )
+    httpx_mock.add_response(
+        method="GET", url=SIGNED_URL, content=b"zip-bytes",
+        headers={"content-disposition": f'attachment; filename="{API_NAME}"'},
+    )
+
+    response = OCLAPIClient(base_url="https://api.example.test", token="t").export_download("PIH", "PIH", "1.8.24")
+
+    assert response.content == b"zip-bytes"
+    assert export_filename(response) == API_NAME

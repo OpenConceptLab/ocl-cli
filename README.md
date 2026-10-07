@@ -191,7 +191,8 @@ ocl repo export status OWNER REPO VERSION --type source|collection
 # Trigger export creation (if not already cached)
 ocl repo export create OWNER REPO VERSION --type source|collection
 
-# Download, saved under the API's name (-o FILE renames it, -o DIR saves it there)
+# Download, saved under the API's name; never replaces an existing file
+# (-o FILE saves it as FILE, overwriting; -o DIR saves it in that existing directory)
 ocl repo export download OWNER REPO VERSION --type source|collection [-o FILE|DIR]
 
 # Delete a cached export

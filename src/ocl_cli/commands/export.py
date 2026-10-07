@@ -1,7 +1,7 @@
 """Export commands: status, create, delete, download."""
 
 import os
-from email.message import Message
+import re
 from urllib.parse import parse_qs, unquote, urlsplit
 
 import click
@@ -82,31 +82,54 @@ def delete(ctx, owner, repo, version, repo_type, owner_type):
         handle_api_error(e)
 
 
+# The API names exports with only these characters, so anything else isn't an export name.
+SAFE_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
+WINDOWS_DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+                        *(f"LPT{i}" for i in range(1, 10))}
+
+
 def _filename_from_content_disposition(value):
-    """The filename in a Content-Disposition value, or None."""
+    """The filename in a Content-Disposition value, preferring filename* (RFC 6266), or None."""
     if not value:
         return None
-    message = Message()
-    message["content-disposition"] = value
-    return message.get_filename()
+    extended = re.search(r"(?:^|;)\s*filename\*\s*=\s*([^';\s]+)'[^']*'([^;\s]+)", value, re.I)
+    if extended:
+        try:
+            return unquote(extended.group(2), encoding=extended.group(1), errors="strict")
+        except (LookupError, UnicodeDecodeError):
+            pass
+    plain = re.search(r'(?:^|;)\s*filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;\s]+))', value, re.I)
+    if plain:
+        return re.sub(r"\\(.)", r"\1", plain.group(1)) if plain.group(1) is not None else plain.group(2)
+    return None
+
+
+def _usable_filename(name):
+    if not name or not SAFE_FILENAME.fullmatch(name):
+        return False
+    return name.split(".")[0].upper() not in WINDOWS_DEVICE_NAMES
 
 
 def export_filename(response):
-    """The name the API gives the export.
+    """The name the API gives the export, or None.
 
-    Read from the Content-Disposition header, then from the signed URL's
-    response-content-disposition, then from the URL's last path segment.
-    Only the base name is kept, so the file can't land outside the target directory.
+    Tried in order: the Content-Disposition header, the signed URL's
+    response-content-disposition, then the URL's last path segment. A name
+    must be a plain file name made of the characters the API uses.
     """
     url = urlsplit(str(response.url))
-    candidates = [
-        _filename_from_content_disposition(response.headers.get("content-disposition")),
-        _filename_from_content_disposition(parse_qs(url.query).get("response-content-disposition", [None])[0]),
-        unquote(url.path.rsplit("/", 1)[-1]),
-    ]
-    for name in candidates:
-        name = os.path.basename((name or "").replace("\\", "/"))
-        if name not in ("", ".", ".."):
+    candidates = (
+        lambda: _filename_from_content_disposition(response.headers.get("content-disposition")),
+        lambda: _filename_from_content_disposition(
+            parse_qs(url.query).get("response-content-disposition", [None])[0]),
+        lambda: unquote(url.path.rsplit("/", 1)[-1]),
+    )
+    for candidate in candidates:
+        try:
+            name = candidate()
+        except ValueError:
+            continue
+        if _usable_filename(name):
             return name
     return None
 
@@ -116,7 +139,7 @@ def export_filename(response):
 @click.option(
     "-o", "--output", "output_path",
     type=click.Path(),
-    help="Output file or directory (default: the API's name for the export, in the current directory).",
+    help="Output file, or an existing directory (default: the API's name for the export, in the current directory).",
 )
 @click.pass_context
 def download(ctx, owner, repo, version, repo_type, owner_type, output_path):
@@ -128,14 +151,22 @@ def download(ctx, owner, repo, version, repo_type, owner_type, output_path):
             owner, repo, version, owner_type=owner_type, repo_type=repo_type,
         )
 
+        # An explicit -o FILE is overwritten, as before. A name the API chose never replaces an existing file.
+        mode = "wb"
         if not output_path or os.path.isdir(output_path):
             filename = export_filename(response)
             if not filename:
                 raise click.ClickException("The API didn't name the export. Pass -o FILE to choose a name.")
             output_path = os.path.join(output_path or "", filename)
+            mode = "xb"
+        elif output_path.endswith(("/", os.sep)):
+            raise click.ClickException(f"Directory {output_path} doesn't exist.")
 
-        with open(output_path, "wb") as f:
-            f.write(response.content)
+        try:
+            with open(output_path, mode) as f:
+                f.write(response.content)
+        except FileExistsError:
+            raise click.ClickException(f"{output_path} already exists. Remove it, or pass -o FILE to overwrite.") from None
 
         size = len(response.content)
         click.echo(f"Saved to {output_path} ({size:,} bytes)", err=True)
