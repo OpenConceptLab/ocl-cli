@@ -1,6 +1,9 @@
 """Export commands: status, create, delete, download."""
 
+import os
 import sys
+from email.message import Message
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import click
 
@@ -80,23 +83,57 @@ def delete(ctx, owner, repo, version, repo_type, owner_type):
         handle_api_error(e)
 
 
+def _filename_from_content_disposition(value):
+    """The filename in a Content-Disposition value, or None."""
+    if not value:
+        return None
+    message = Message()
+    message["content-disposition"] = value
+    return message.get_filename()
+
+
+def export_filename(response):
+    """The name the API gives the export.
+
+    Read from the Content-Disposition header, then from the signed URL's
+    response-content-disposition, then from the URL's last path segment.
+    Only the base name is kept, so the file can't land outside the target directory.
+    """
+    url = urlsplit(str(response.url))
+    candidates = [
+        _filename_from_content_disposition(response.headers.get("content-disposition")),
+        _filename_from_content_disposition(parse_qs(url.query).get("response-content-disposition", [None])[0]),
+        unquote(url.path.rsplit("/", 1)[-1]),
+    ]
+    for name in candidates:
+        name = os.path.basename((name or "").replace("\\", "/"))
+        if name not in ("", ".", ".."):
+            return name
+    return None
+
+
 @export.command()
 @export_args
 @click.option(
     "-o", "--output", "output_path",
     type=click.Path(),
-    help="Output file path (required).",
-    required=True,
+    help="Output file or directory (default: the API's name for the export, in the current directory).",
 )
 @click.pass_context
 def download(ctx, owner, repo, version, repo_type, owner_type, output_path):
-    """Download an export file to a local path."""
+    """Download an export file, named as the API names it unless -o gives a file."""
     client = ctx.obj["client"]
     try:
         click.echo(f"Downloading export...", err=True)
         response = client.export_download(
             owner, repo, version, owner_type=owner_type, repo_type=repo_type,
         )
+
+        if not output_path or os.path.isdir(output_path):
+            filename = export_filename(response)
+            if not filename:
+                raise click.ClickException("The API didn't name the export. Pass -o FILE to choose a name.")
+            output_path = os.path.join(output_path or "", filename)
 
         with open(output_path, "wb") as f:
             f.write(response.content)

@@ -191,8 +191,8 @@ ocl repo export status OWNER REPO VERSION --type source|collection
 # Trigger export creation (if not already cached)
 ocl repo export create OWNER REPO VERSION --type source|collection
 
-# Download to a local file
-ocl repo export download OWNER REPO VERSION --type source|collection -o FILENAME
+# Download, saved under the API's name (-o FILE renames it, -o DIR saves it there)
+ocl repo export download OWNER REPO VERSION --type source|collection [-o FILE|DIR]
 
 # Delete a cached export
 ocl repo export delete OWNER REPO VERSION --type source|collection
@@ -202,8 +202,11 @@ Example — download the latest CIEL release export:
 
 ```bash
 ocl repo export status CIEL CIEL v2026-03-23 --type source
-ocl repo export download CIEL CIEL v2026-03-23 --type source -o CIEL_v2026-03-23.zip
+ocl repo export download CIEL CIEL v2026-03-23 --type source
+# Saved to orgs_CIEL_sources_CIEL_v2026-03-23_<lastUpdated>.zip
 ```
+
+The API names every export `[owner-type]_[owner]_[repo-type]_[repo]_[version]_[expansion]_[lastUpdated].zip`; collection exports include the expansion.
 
 ### Concepts
 
