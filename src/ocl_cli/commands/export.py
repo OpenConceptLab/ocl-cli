@@ -1,7 +1,6 @@
 """Export commands: status, create, delete, download."""
 
 import os
-import sys
 from email.message import Message
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -124,7 +123,7 @@ def download(ctx, owner, repo, version, repo_type, owner_type, output_path):
     """Download an export file, named as the API names it unless -o gives a file."""
     client = ctx.obj["client"]
     try:
-        click.echo(f"Downloading export...", err=True)
+        click.echo("Downloading export...", err=True)
         response = client.export_download(
             owner, repo, version, owner_type=owner_type, repo_type=repo_type,
         )
