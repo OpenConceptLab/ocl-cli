@@ -517,14 +517,15 @@ def format_names_list(data: dict, verbose: bool = False) -> str:
             "preferred": "Yes" if name.get("locale_preferred") else "No",
         }
         if verbose:
+            row["uuid"] = name.get("uuid", "")
             row["external_id"] = name.get("external_id", "")
         rows.append(row)
 
     columns = ["name", "locale", "type", "preferred"]
     headers = ["Name", "Locale", "Type", "Preferred"]
     if verbose:
-        columns.append("external_id")
-        headers.append("External ID")
+        columns += ["uuid", "external_id"]
+        headers += ["UUID", "External ID"]
 
     return format_table(rows, columns, headers)
 

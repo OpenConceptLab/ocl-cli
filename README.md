@@ -227,6 +227,7 @@ ocl concept update OWNER SOURCE CONCEPT_ID [--concept-class CLASS] [--datatype T
 ocl concept retire OWNER SOURCE CONCEPT_ID
 ocl concept delete OWNER SOURCE CONCEPT_ID [--yes]      # hard delete; staff only
 ocl concept name-add OWNER SOURCE CONCEPT_ID NAME --locale LOCALE
+ocl concept name-update OWNER SOURCE CONCEPT_ID NAME_UUID [--name TEXT] [--locale LOCALE] [--name-type TYPE] [--locale-preferred|--no-locale-preferred]
 ocl concept description-add OWNER SOURCE CONCEPT_ID TEXT --locale LOCALE
 ocl concept extra-set OWNER SOURCE CONCEPT_ID KEY VALUE
 ocl concept extra-del OWNER SOURCE CONCEPT_ID KEY

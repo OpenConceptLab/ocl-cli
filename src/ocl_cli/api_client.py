@@ -1053,6 +1053,36 @@ class OCLAPIClient:
             body["locale_preferred"] = True
         return self.post(endpoint, json=body)
 
+    def update_concept_name(
+        self,
+        owner: str,
+        source: str,
+        concept_id: str,
+        name_uuid: str,
+        owner_type: str = "orgs",
+        name: Optional[str] = None,
+        locale: Optional[str] = None,
+        name_type: Optional[str] = None,
+        locale_preferred: Optional[bool] = None,
+        external_id: Optional[str] = None,
+    ) -> dict:
+        """Update an existing name on a concept by UUID."""
+        self._require_auth()
+        _validate_owner_type(owner_type)
+        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/names/{name_uuid}/"
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if locale is not None:
+            body["locale"] = locale
+        if name_type is not None:
+            body["name_type"] = name_type
+        if locale_preferred is not None:
+            body["locale_preferred"] = locale_preferred
+        if external_id is not None:
+            body["external_id"] = external_id
+        return self.put(endpoint, json=body)
+
     def add_concept_description(
         self,
         owner: str,
