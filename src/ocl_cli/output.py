@@ -992,6 +992,26 @@ def format_import_status(data: dict | list) -> str:
     return "\n".join(lines)
 
 
+def format_index_task(data: dict) -> str:
+    """Format reindex task submission response."""
+    if not data:
+        return "Reindex accepted."
+    lines = ["Reindex accepted."]
+    task_id = data.get("id") or data.get("task", "")
+    if task_id:
+        lines.append(f"  Task ID: {task_id}")
+    state = data.get("state", "")
+    if state:
+        lines.append(f"  State:   {state}")
+    queue = data.get("queue", "")
+    if queue:
+        lines.append(f"  Queue:   {queue}")
+    username = data.get("username", "")
+    if username:
+        lines.append(f"  User:    {username}")
+    return "\n".join(lines)
+
+
 def format_export_status(data: dict) -> str:
     """Format export status for human output."""
     status = data.get("status", "unknown")

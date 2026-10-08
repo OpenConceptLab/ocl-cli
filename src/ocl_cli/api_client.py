@@ -1337,6 +1337,121 @@ class OCLAPIClient:
         self._require_auth()
         return self.delete(f"/orgs/{org}/members/{username}/")
 
+    # ── Index / reindex operations ──────────────────────────────────
+
+    def _post_multipart(self, endpoint: str, fields: Optional[dict] = None) -> Any:
+        """POST as multipart/form-data for admin endpoints that use DRF MultiPartParser."""
+        self._require_auth()
+        self._log_request("POST", endpoint, body=fields)
+        mp: dict[str, Any] = {}
+        if fields:
+            for k, v in fields.items():
+                if v is not None:
+                    mp[k] = (None, str(v))
+        if not mp:
+            mp = {"_": (None, "")}
+        response = self.client.post(endpoint, files=mp)
+        self._handle_error(response)
+        if not response.content:
+            return {}
+        try:
+            return response.json()
+        except Exception:
+            return {}
+
+    def index_source_concepts(
+        self,
+        owner: str,
+        source: str,
+        owner_type: str = "orgs",
+        version: Optional[str] = None,
+        single_batch: bool = False,
+        parallel: bool = True,
+    ) -> dict:
+        """Trigger reindexing of concepts for a source."""
+        self._require_auth()
+        endpoint = _build_repo_endpoint(owner_type, owner, "source", source, version, "concepts/indexes/")
+        body: dict[str, Any] = {}
+        if single_batch:
+            body["single_batch"] = True
+        if not parallel:
+            body["parallel"] = False
+        return self.post(endpoint, json=body or None)
+
+    def index_source_mappings(
+        self,
+        owner: str,
+        source: str,
+        owner_type: str = "orgs",
+        version: Optional[str] = None,
+        single_batch: bool = False,
+    ) -> dict:
+        """Trigger reindexing of mappings for a source."""
+        self._require_auth()
+        endpoint = _build_repo_endpoint(owner_type, owner, "source", source, version, "mappings/indexes/")
+        body: dict[str, Any] = {}
+        if single_batch:
+            body["single_batch"] = True
+        return self.post(endpoint, json=body or None)
+
+    def index_expansion_concepts(
+        self,
+        owner: str,
+        collection: str,
+        version: str,
+        expansion: str,
+        owner_type: str = "orgs",
+    ) -> dict:
+        """Trigger reindexing of concepts in a collection expansion (admin only)."""
+        self._require_auth()
+        _validate_owner_type(owner_type)
+        endpoint = f"/{owner_type}/{owner}/collections/{collection}/{version}/expansions/{expansion}/concepts/index/"
+        return self.post(endpoint)
+
+    def index_expansion_mappings(
+        self,
+        owner: str,
+        collection: str,
+        version: str,
+        expansion: str,
+        owner_type: str = "orgs",
+    ) -> dict:
+        """Trigger reindexing of mappings in a collection expansion (admin only)."""
+        self._require_auth()
+        _validate_owner_type(owner_type)
+        endpoint = f"/{owner_type}/{owner}/collections/{collection}/{version}/expansions/{expansion}/mappings/index/"
+        return self.post(endpoint)
+
+    def index_rebuild(self, apps: Optional[str] = None) -> dict:
+        """Rebuild all Elasticsearch indexes (admin only)."""
+        fields = {"apps": apps} if apps else None
+        return self._post_multipart("/indexes/apps/rebuild/", fields)
+
+    def index_populate(self, apps: Optional[str] = None) -> dict:
+        """Populate Elasticsearch indexes (admin only)."""
+        fields = {"apps": apps} if apps else None
+        return self._post_multipart("/indexes/apps/populate/", fields)
+
+    def index_resource(
+        self,
+        resource: str,
+        ids: Optional[str] = None,
+        uri: Optional[str] = None,
+        filter_str: Optional[str] = None,
+        update_indexed: bool = False,
+    ) -> dict:
+        """Batch reindex a specific resource type (admin only)."""
+        fields: dict[str, Any] = {}
+        if ids:
+            fields["ids"] = ids
+        elif uri:
+            fields["uri"] = uri
+        elif filter_str:
+            fields["filter"] = filter_str
+        if update_indexed:
+            fields["update_indexed"] = "true"
+        return self._post_multipart(f"/indexes/resources/{resource}/", fields or None)
+
     # ── Task operations ─────────────────────────────────────────────
 
     def list_tasks(
