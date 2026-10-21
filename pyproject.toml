@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openconceptlab"
-version = "0.2.0"
+version = "0.2.1"
 description = "Python client and command-line interface for the Open Concept Lab API"
 readme = "README.md"
 license = "MPL-2.0"

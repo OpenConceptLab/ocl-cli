@@ -67,6 +67,8 @@ Pass `auth_scheme="Bearer"` to use an OIDC access token instead of an API token.
 
 HTTP errors raise `openconceptlab.APIError`, with `status_code`, `detail` and the parsed response `body`. Network failures raise the httpx exception (`httpx.TimeoutException` or `httpx.TransportError`) once retries run out. A client holds one token, so create one per user.
 
+Each ID, version or key you pass is encoded as one segment of the request path. An empty value, `.`, `..` or a value containing `/` raises `APIError` (`status_code` 0) before anything is sent. So does a request to a URL outside the client's `base_url`, such as one taken from a response.
+
 ## Quick Start
 
 ### 1. Authenticate

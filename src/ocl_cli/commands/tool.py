@@ -14,6 +14,7 @@ import click
 
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
+from openconceptlab.client import _segment
 
 # Regex to detect versioned concept/mapping expressions (e.g. /concepts/100/1/)
 VERSIONED_EXPR = re.compile(r"/(concepts|mappings)/\d+/\d+/?$")
@@ -115,6 +116,12 @@ def _collection_url(org: str | None, collection_id: str) -> str:
     if org:
         return f"/orgs/{org}/collections/{collection_id}/"
     return f"/user/collections/{collection_id}/"
+
+
+def _collection_path(org: str | None, collection_id: str) -> str:
+    """The collection's API path, each identifier encoded as one segment."""
+    owner = f"/orgs/{_segment(org)}" if org else "/user"
+    return f"{owner}/collections/{_segment(collection_id)}/"
 
 
 def _build_references(export, org, collection_id, client, callback=None):
@@ -238,6 +245,11 @@ def recreate_collection(ctx, input_path, org, name, output_path, dry_run):
     if not collection_id:
         click.echo("Error: Collection id not found in export and --name not provided.", err=True)
         sys.exit(1)
+    try:
+        collection_path = _collection_path(org, collection_id)
+    except APIError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
 
     # Default output filename
     if not output_path:
@@ -273,7 +285,6 @@ def recreate_collection(ctx, input_path, org, name, output_path, dry_run):
 
     # Delete and recreate collection
     click.echo("Recreating collection and importing references...")
-    collection_path = _collection_url(org, collection_id)
     try:
         # Check if collection exists
         try:
@@ -289,7 +300,7 @@ def recreate_collection(ctx, input_path, org, name, output_path, dry_run):
         # Create collection
         click.echo(f"Creating collection {collection_id}...")
         payload = _build_collection_payload(export_data, name)
-        collections_path = f"/orgs/{org}/collections/" if org else "/user/collections/"
+        collections_path = f"/orgs/{_segment(org)}/collections/" if org else "/user/collections/"
         client.post(collections_path, json=payload)
 
         # Bulk import
