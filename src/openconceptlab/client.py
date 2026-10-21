@@ -76,6 +76,28 @@ def _resolve_dot_segments(path: str) -> str:
     return "/" + "/".join(parts)
 
 
+def _path_readings(path: str) -> tuple[str, ...]:
+    """Ways a server or gateway may route a decoded path.
+
+    As is; with dot segments resolved; with backslashes read as slashes; and
+    decoded until it stops changing, with ``;`` parameters dropped from each segment.
+    """
+    deep = path
+    while (decoded := unquote(deep)) != deep:
+        deep = decoded
+    deep = "/".join(part.split(";")[0] for part in deep.replace("\\", "/").split("/"))
+    return (
+        path,
+        _resolve_dot_segments(path),
+        _resolve_dot_segments(path.replace("\\", "/")),
+        _resolve_dot_segments(deep),
+    )
+
+
+def _within(path: str, prefix: str) -> bool:
+    return path == prefix or path.startswith(prefix + "/")
+
+
 def _validate_owner_type(owner_type: str) -> None:
     if owner_type not in ("users", "orgs"):
         raise ValueError(f"owner_type must be 'users' or 'orgs', got '{owner_type}'")
@@ -159,17 +181,19 @@ class OCLAPIClient:
         """Refuse any request outside the API's origin and path: the token goes only there.
 
         Hosts are compared in their encoded (punycode) form. A path prefix must hold
-        however a server routes the decoded path: as sent, with dot segments resolved,
-        or with backslashes read as slashes too.
+        for the raw path and for every reading of the decoded one (``_path_readings``).
         """
         base, url = self._base, request.url
         if url.userinfo:
             raise APIError("Refusing to send a request with credentials in its URL", status_code=0)
         prefix = base.path.rstrip("/")
-        readings = (url.path, _resolve_dot_segments(url.path), _resolve_dot_segments(url.path.replace("\\", "/")))
+        raw_prefix = base.raw_path.decode("ascii").rstrip("/")
+        raw_path = url.raw_path.decode("ascii").split("?")[0]
         if (
             (url.scheme, url.raw_host, url.port) != (base.scheme, base.raw_host, base.port)
-            or (prefix and not all(path == prefix or path.startswith(prefix + "/") for path in readings))
+            or (prefix and not (
+                _within(raw_path, raw_prefix) and all(_within(path, prefix) for path in _path_readings(url.path))
+            ))
         ):
             raise APIError(
                 f"Refusing to send a request outside {base.scheme}://{base.raw_host.decode()}{prefix}: "

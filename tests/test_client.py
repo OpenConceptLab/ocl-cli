@@ -456,3 +456,23 @@ def test_cascade_children_are_fetched_for_a_concept_expression(httpx_mock):
     )
     children = OCLAPIClient(base_url=BASE, token="t").fetch_cascade_children("/orgs/X/sources/S/concepts/1/")
     assert children == {"/orgs/X/sources/S/concepts/2/"}
+
+
+@pytest.mark.parametrize("path", ["/%6Fcl-api/x/", "/ocl-api%2Fx/", "/ocl-api/..;/x/", "/ocl-api/%252e%252e/x/"])
+def test_a_path_outside_the_prefix_under_any_reading_is_refused(httpx_mock, path):
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url="https://api.example.test/ocl-api").get(f"https://api.example.test{path}")
+    assert httpx_mock.get_requests() == []
+
+
+def test_a_redirect_outside_the_raw_prefix_is_refused(httpx_mock):
+    httpx_mock.add_response(url="https://api.example.test/ocl-api/x/", status_code=302, headers={"Location": "/%6Fcl-api/y/"})
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url="https://api.example.test/ocl-api", token="t").request("GET", "/x/", follow_redirects=True)
+    assert len(httpx_mock.get_requests()) == 1
+
+
+def test_an_encoded_prefix_and_a_semicolon_in_an_identifier_still_work(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url="https://api.example.test/my api").get_concept("X", "S", "a;b")
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/my%20api/orgs/X/sources/S/concepts/a%3Bb/"
