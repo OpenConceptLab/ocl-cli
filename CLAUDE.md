@@ -13,7 +13,7 @@ pip install -e ".[dev]"
 
 ## Architecture
 
-- **`src/ocl_cli/api_client.py`** — Sync HTTP client with all high-level API methods. Business logic lives here (not in Click commands) so it can be reused by a future MCP server wrapper.
+- **`src/openconceptlab/client.py`** — The API client is the open core package `openconceptlab` (`src/openconceptlab/client.py`). `ocl_cli.api_client` is a shim. Put API logic in the core; keep Click and output formatting in `ocl_cli`.
 - **`src/ocl_cli/config.py`** — Server registry and auth token resolution. Config stored at `~/.ocl/config.json`.
 - **`src/ocl_cli/output.py`** — JSON and human-readable table formatters.
 - **`src/ocl_cli/main.py`** — Click root group, global options, command registration.
@@ -21,7 +21,7 @@ pip install -e ".[dev]"
 
 ## Conventions
 
-- Click commands are thin wrappers. All API logic goes in `api_client.py`.
+- Click commands are thin wrappers. All API logic goes in the core client, `src/openconceptlab/client.py`.
 - Default `owner_type` is `"orgs"` for targeted operations, `"all"` for search/list.
 - Default `repo_type` is `"all"` for search/list, required for targeted operations.
 - `--json` / `-j` global flag outputs raw API JSON (unmodified) for agent consumption.

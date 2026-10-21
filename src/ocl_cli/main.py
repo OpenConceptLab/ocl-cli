@@ -7,7 +7,7 @@ import sys
 
 import click
 
-from ocl_cli import __version__
+from ocl_cli import CLIENT_NAME, __version__
 from ocl_cli.api_client import APIError, OCLAPIClient
 from ocl_cli.config import CLIConfig
 from ocl_cli.output import output_error
@@ -29,7 +29,7 @@ def cli(ctx, json_output, server_id, token, debug, show_request):
     server = config.get_server(server_id)
     resolved_token = config.resolve_token(server, token_override=token)
 
-    client = OCLAPIClient(base_url=server.base_url, token=resolved_token)
+    client = OCLAPIClient(base_url=server.base_url, token=resolved_token, client_name=CLIENT_NAME)
     client.debug = debug
     client.show_request = show_request
 
@@ -64,14 +64,14 @@ cli.add_command(whoami)
 cli.add_command(server)
 
 # Phase 2: Read commands
-from ocl_cli.commands.org import org  # noqa: E402
-from ocl_cli.commands.user import user  # noqa: E402
-from ocl_cli.commands.repo import repo  # noqa: E402
-from ocl_cli.commands.concept import concept  # noqa: E402
-from ocl_cli.commands.mapping import mapping  # noqa: E402
 from ocl_cli.commands.cascade import cascade_cmd  # noqa: E402
-from ocl_cli.commands.ref import ref  # noqa: E402
+from ocl_cli.commands.concept import concept  # noqa: E402
 from ocl_cli.commands.expansion import expansion  # noqa: E402
+from ocl_cli.commands.mapping import mapping  # noqa: E402
+from ocl_cli.commands.org import org  # noqa: E402
+from ocl_cli.commands.ref import ref  # noqa: E402
+from ocl_cli.commands.repo import repo  # noqa: E402
+from ocl_cli.commands.user import user  # noqa: E402
 
 cli.add_command(org)
 cli.add_command(user)
@@ -88,8 +88,8 @@ from ocl_cli.commands.task import task  # noqa: E402
 cli.add_command(task)
 
 # Operational tools
-from ocl_cli.commands.tool import tool  # noqa: E402
 from ocl_cli.commands.import_cmd import import_cmd  # noqa: E402
+from ocl_cli.commands.tool import tool  # noqa: E402
 
 cli.add_command(tool)
 cli.add_command(import_cmd)

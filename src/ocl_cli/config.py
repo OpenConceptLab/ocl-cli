@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-
 CONFIG_DIR = Path.home() / ".ocl"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 

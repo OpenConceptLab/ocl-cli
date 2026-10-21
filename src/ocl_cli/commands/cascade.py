@@ -4,7 +4,7 @@ import click
 
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
-from ocl_cli.output import output_result, format_cascade_results
+from ocl_cli.output import format_cascade_results, output_result
 
 
 @click.command("cascade")

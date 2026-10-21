@@ -4,7 +4,6 @@ Handles JSON and human-readable table output.
 """
 
 import json
-import sys
 from typing import Any, Callable, Optional
 
 import click
@@ -878,7 +877,6 @@ def _format_runtime(started: Any, finished: Any) -> str:
         return ""
     try:
         from datetime import datetime
-        fmt = "%Y-%m-%dT%H:%M:%S"
         s = str(started)[:19]
         f = str(finished)[:19]
         delta = datetime.fromisoformat(s) - datetime.fromisoformat(f)

@@ -5,8 +5,11 @@ import click
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
 from ocl_cli.output import (
-    output_result, format_user_list, format_user_detail,
-    format_org_list, format_repo_list,
+    format_org_list,
+    format_repo_list,
+    format_user_detail,
+    format_user_list,
+    output_result,
 )
 
 

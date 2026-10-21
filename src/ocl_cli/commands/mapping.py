@@ -7,8 +7,10 @@ import click
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
 from ocl_cli.output import (
-    output_result, format_mapping_list, format_mapping_detail,
+    format_mapping_detail,
+    format_mapping_list,
     format_version_list,
+    output_result,
 )
 
 
