@@ -420,3 +420,23 @@ def test_get_still_takes_a_whole_path(httpx_mock):
     httpx_mock.add_response(json={})
     OCLAPIClient(base_url=BASE).get("/orgs/CIEL/sources/CIEL/concepts/a b&c/")
     assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/a%20b&c/"
+
+
+def test_a_path_outside_the_prefix_that_normalizes_inside_is_refused(httpx_mock):
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url="https://api.example.test/ocl-api").get("https://api.example.test/other/..%5Cocl-api/x/")
+    assert httpx_mock.get_requests() == []
+
+
+@pytest.mark.parametrize("method", ["export_status", "export_create", "export_delete", "export_download"])
+def test_an_export_needs_a_version(httpx_mock, method):
+    with pytest.raises(APIError):
+        getattr(OCLAPIClient(base_url=BASE, token="t"), method)("X", "R", "")
+    assert httpx_mock.get_requests() == []
+
+
+@pytest.mark.parametrize("follow_redirects", [False, True])
+def test_a_redirect_to_a_malformed_host_raises_api_error(httpx_mock, follow_redirects):
+    httpx_mock.add_response(url=f"{BASE}/x/", status_code=302, headers={"Location": "https://xn--a.example/y/"})
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url=BASE, token="t").request("GET", "/x/", follow_redirects=follow_redirects)

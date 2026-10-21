@@ -65,15 +65,19 @@ def _segment(value: Any) -> str:
 
 
 def _resolve_dot_segments(path: str) -> str:
-    """The path as a server that decodes and normalizes it would route it."""
+    """The path with its ``.`` and ``..`` segments resolved, as a normalizing server routes it."""
     parts: list[str] = []
-    for part in path.replace("\\", "/").split("/"):
+    for part in path.split("/"):
         if part == "..":
             if parts:
                 parts.pop()
         elif part not in ("", "."):
             parts.append(part)
     return "/" + "/".join(parts)
+
+
+def _within(path: str, prefix: str) -> bool:
+    return path == prefix or path.startswith(prefix + "/")
 
 
 def _validate_owner_type(owner_type: str) -> None:
@@ -99,11 +103,12 @@ def _build_repo_endpoint(
 
 
 class _HTTPClient(httpx.Client):
-    def build_request(self, *args: Any, **kwargs: Any) -> httpx.Request:
+    def request(self, *args: Any, **kwargs: Any) -> httpx.Response:
+        # httpx decodes a URL's host when it builds a request, a redirect's next one included.
         try:
-            return super().build_request(*args, **kwargs)
+            return super().request(*args, **kwargs)
         except UnicodeError as e:  # idna's error for a host that isn't a valid domain name
-            raise APIError(f"Refusing to send a request to an invalid host: {e}", status_code=0) from e
+            raise APIError(f"Refusing a URL whose host isn't a valid domain name: {e}", status_code=0) from e
 
 
 class OCLAPIClient:
@@ -157,17 +162,18 @@ class OCLAPIClient:
     def _check_destination(self, request: httpx.Request) -> None:
         """Refuse any request outside the API's origin and path: the token goes only there.
 
-        Hosts are compared in their encoded (punycode) form, and the path as a server
-        that decodes and normalizes it would route it.
+        Hosts are compared in their encoded (punycode) form. A path prefix must hold
+        however a server routes the decoded path: as sent, with dot segments resolved,
+        or with backslashes read as slashes too.
         """
         base, url = self._base, request.url
         if url.userinfo:
             raise APIError("Refusing to send a request with credentials in its URL", status_code=0)
         prefix = base.path.rstrip("/")
-        path = _resolve_dot_segments(url.path)
+        readings = (url.path, _resolve_dot_segments(url.path), _resolve_dot_segments(url.path.replace("\\", "/")))
         if (
             (url.scheme, url.raw_host, url.port) != (base.scheme, base.raw_host, base.port)
-            or (prefix and path != prefix and not path.startswith(prefix + "/"))
+            or (prefix and not all(_within(path, prefix) for path in readings))
         ):
             raise APIError(
                 f"Refusing to send a request outside {base.scheme}://{base.raw_host.decode()}{prefix}: "
@@ -1697,8 +1703,9 @@ class OCLAPIClient:
         self, owner: str, repo: str, version: str,
         owner_type: str, repo_type: str,
     ) -> str:
+        # The version is required: without it the path would name a version called "export".
         return _build_repo_endpoint(
-            owner_type, owner, repo_type, repo, version, "export/"
+            owner_type, owner, repo_type, repo, suffix=f"{_segment(version)}/export/"
         )
 
     def export_status(
