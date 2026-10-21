@@ -50,6 +50,21 @@ ocl --version
 ocl --help
 ```
 
+## Use as a Python library
+
+The `openconceptlab` package also installs the API client the `ocl` command uses:
+
+```python
+from openconceptlab import OCLAPIClient
+
+with OCLAPIClient(token="<your OCL API token>", client_name="my-tool/1.0") as ocl:
+    hits = ocl.search_concepts(query="malaria", owner="CIEL", repo="CIEL", limit=5)
+    for concept in hits["results"]:
+        print(concept["id"], concept["display_name"])
+```
+
+Pass `auth_scheme="Bearer"` to use an OIDC access token instead of an API token.
+
 ## Quick Start
 
 ### 1. Authenticate
