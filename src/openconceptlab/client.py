@@ -17,6 +17,9 @@ from tenacity import (
 
 from openconceptlab import __version__
 
+# A POST is not idempotent: retry it only when the request never reached the server.
+_RETRY_IF_NOT_SENT = retry_if_exception_type((httpx.ConnectError, httpx.ConnectTimeout))
+
 
 class APIError(Exception):
     """Structured API error with status code and detail."""
@@ -163,6 +166,7 @@ class OCLAPIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
     )
     def get(self, endpoint: str, params: Optional[dict] = None, timeout: Optional[float] = None) -> Any:
         self._log_request("GET", endpoint, params)
@@ -176,7 +180,8 @@ class OCLAPIClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
-        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        retry=_RETRY_IF_NOT_SENT,
+        reraise=True,
     )
     def post(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
         self._log_request("POST", endpoint, params, body=json)
@@ -188,6 +193,7 @@ class OCLAPIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
     )
     def put(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
         self._log_request("PUT", endpoint, params, body=json)
@@ -199,6 +205,7 @@ class OCLAPIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
     )
     def patch(self, endpoint: str, json: Optional[dict] = None, params: Optional[dict] = None) -> Any:
         self._log_request("PATCH", endpoint, params, body=json)
@@ -210,6 +217,7 @@ class OCLAPIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
     )
     def delete(self, endpoint: str, params: Optional[dict] = None) -> Any:
         self._log_request("DELETE", endpoint, params)
@@ -261,6 +269,7 @@ class OCLAPIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
     )
     def _get_list(self, endpoint: str, params: Optional[dict] = None) -> dict:
         """GET a list endpoint, preserving pagination headers.
