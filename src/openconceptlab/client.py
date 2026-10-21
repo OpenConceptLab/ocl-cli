@@ -883,6 +883,33 @@ class OCLAPIClient:
             params["q"] = query
         return self._get_list(f"{expansion_url.rstrip('/')}/concepts/", params=params)
 
+    def changelog(
+        self,
+        repo_type: str,
+        version1_url: str,
+        version2_url: str,
+        verbosity: int = 4,
+    ) -> dict:
+        """What changed between two versions of a source or collection ($changelog).
+
+        Returns ``{"status": "pending", ...}`` while OCL is still computing it:
+        HTTP 202 after OCL's 40-second wait, or 409 when it's already queued.
+        """
+        endpoint = f"/{_repo_type_stem(repo_type)}/$changelog/"
+        response = self.request(
+            "POST",
+            endpoint,
+            params={"verbosity": verbosity},
+            json={"version1": version1_url, "version2": version2_url},
+            timeout=60.0,
+        )
+        if response.status_code == 202:
+            return {"status": "pending", "task": response.json()}
+        if response.status_code == 409:
+            return {"status": "pending", "detail": "Already queued"}
+        self._handle_error(response)
+        return response.json()
+
     def list_collection_refs(
         self,
         owner: str,

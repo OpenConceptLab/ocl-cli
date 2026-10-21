@@ -151,3 +151,35 @@ def test_expansion_concepts_without_a_default_expansion(httpx_mock):
     with pytest.raises(APIError) as err:
         OCLAPIClient(base_url=BASE).list_expansion_concepts("PIH", "HIV", "v1")
     assert err.value.status_code == 404
+
+
+CHANGELOG_URL = re.compile(r"https://api\.example\.test/sources/\$changelog/.*")
+V1, V2 = "/orgs/CIEL/sources/CIEL/v2024/", "/orgs/CIEL/sources/CIEL/v2025/"
+
+
+def test_changelog_returns_the_result(httpx_mock):
+    httpx_mock.add_response(method="POST", url=CHANGELOG_URL, json={"meta": {}, "concepts": {"new": {}}})
+    out = OCLAPIClient(base_url=BASE, token="t").changelog("source", V1, V2)
+    req = httpx_mock.get_request()
+    assert json.loads(req.content) == {"version1": V1, "version2": V2}
+    assert req.url.params["verbosity"] == "4"
+    assert out == {"meta": {}, "concepts": {"new": {}}}
+
+
+def test_changelog_still_computing(httpx_mock):
+    httpx_mock.add_response(method="POST", url=CHANGELOG_URL, status_code=202, json={"id": "task-1", "state": "PENDING"})
+    out = OCLAPIClient(base_url=BASE, token="t").changelog("source", V1, V2)
+    assert out == {"status": "pending", "task": {"id": "task-1", "state": "PENDING"}}
+
+
+def test_changelog_already_queued(httpx_mock):
+    httpx_mock.add_response(method="POST", url=CHANGELOG_URL, status_code=409, json={"detail": "Already Queued"})
+    out = OCLAPIClient(base_url=BASE, token="t").changelog("source", V1, V2)
+    assert out == {"status": "pending", "detail": "Already queued"}
+
+
+def test_changelog_errors_raise(httpx_mock):
+    httpx_mock.add_response(method="POST", url=CHANGELOG_URL, status_code=404, json={"detail": "Not found."})
+    with pytest.raises(APIError) as err:
+        OCLAPIClient(base_url=BASE, token="t").changelog("source", V1, V2)
+    assert err.value.status_code == 404
