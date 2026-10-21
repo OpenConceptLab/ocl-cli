@@ -65,6 +65,8 @@ with OCLAPIClient(token="<your OCL API token>", client_name="my-tool/1.0") as oc
 
 Pass `auth_scheme="Bearer"` to use an OIDC access token instead of an API token.
 
+HTTP errors raise `openconceptlab.APIError`, with `status_code`, `detail` and the parsed response `body`. Network failures raise the httpx exception (`httpx.TimeoutException` or `httpx.TransportError`) once retries run out. A client holds one token, so create one per user.
+
 ## Quick Start
 
 ### 1. Authenticate

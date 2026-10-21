@@ -22,12 +22,17 @@ _RETRY_IF_NOT_SENT = retry_if_exception_type((httpx.ConnectError, httpx.ConnectT
 
 
 class APIError(Exception):
-    """Structured API error with status code and detail."""
+    """Structured API error with status code and detail.
 
-    def __init__(self, message: str, status_code: int = 0, detail: str = ""):
+    ``body`` is the error response's parsed JSON, or its text when it isn't JSON;
+    it is None when the error didn't come from an HTTP response.
+    """
+
+    def __init__(self, message: str, status_code: int = 0, detail: str = "", body: Any = None):
         super().__init__(message)
         self.status_code = status_code
         self.detail = detail
+        self.body = body
 
     def to_dict(self) -> dict:
         d = {"error": str(self), "status_code": self.status_code}
@@ -104,11 +109,12 @@ class OCLAPIClient:
         }
         if self.token:
             default_headers["Authorization"] = f"{auth_scheme} {self.token}"
-        default_headers.update(headers or {})
+        merged = httpx.Headers(default_headers)
+        merged.update(headers or {})
 
         self.client = httpx.Client(
             base_url=self.base_url,
-            headers=default_headers,
+            headers=merged,
             timeout=timeout,
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
         )
@@ -145,22 +151,25 @@ class OCLAPIClient:
 
     def _handle_error(self, response: httpx.Response) -> None:
         """Convert HTTP errors to APIError."""
+        if response.status_code < 400:
+            return
+        try:
+            body = response.json()
+        except Exception:
+            body = response.text
         if response.status_code == 429:
             retry_after = response.headers.get("Retry-After", "60")
             raise APIError(
                 f"Rate limit exceeded. Retry after {retry_after}s",
                 status_code=429,
+                body=body,
             )
-        if response.status_code >= 400:
-            try:
-                detail = response.json()
-            except Exception:
-                detail = response.text
-            raise APIError(
-                f"HTTP {response.status_code}",
-                status_code=response.status_code,
-                detail=str(detail),
-            )
+        raise APIError(
+            f"HTTP {response.status_code}",
+            status_code=response.status_code,
+            detail=str(body),
+            body=body,
+        )
 
     @retry(
         stop=stop_after_attempt(3),

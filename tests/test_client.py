@@ -40,6 +40,32 @@ def test_bearer_client_name_extra_headers_and_timeout(httpx_mock):
     assert client.client.timeout.read == 12.5
 
 
+def test_extra_headers_override_defaults_case_insensitively(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(
+        base_url=BASE, token="abc", headers={"authorization": "Bearer other", "x-ocl-client": "mine/1"}
+    ).get("/x/")
+    req = httpx_mock.get_request()
+    assert req.headers.get_list("Authorization") == ["Bearer other"]
+    assert req.headers.get_list("X-OCL-CLIENT") == ["mine/1"]
+
+
+def test_api_error_carries_the_parsed_body(httpx_mock):
+    httpx_mock.add_response(status_code=404, json={"detail": "Not found."})
+    with pytest.raises(APIError) as err:
+        OCLAPIClient(base_url=BASE).get("/x/")
+    assert err.value.body == {"detail": "Not found."}
+    assert err.value.detail == "{'detail': 'Not found.'}"  # unchanged: the CLI prints it
+
+
+def test_api_error_body_is_the_text_when_not_json(httpx_mock):
+    httpx_mock.add_response(status_code=502, text="Bad gateway")
+    with pytest.raises(APIError) as err:
+        OCLAPIClient(base_url=BASE).get("/x/")
+    assert err.value.body == "Bad gateway"
+    assert err.value.status_code == 502
+
+
 def test_no_authorization_header_without_a_token(httpx_mock):
     httpx_mock.add_response(json={})
     OCLAPIClient(base_url=BASE).get("/x/")
@@ -87,7 +113,8 @@ def test_cli_names_itself_to_the_api():
         patch("ocl_cli.main.CLIConfig.load", return_value=_FakeConfig()),
         patch("ocl_cli.main.OCLAPIClient") as client_cls,
     ):
-        CliRunner().invoke(cli, ["repo", "--help"])
+        result = CliRunner().invoke(cli, ["repo", "--help"])
+    assert result.exit_code == 0, result.output
     assert client_cls.call_args.kwargs["client_name"] == CLIENT_NAME
 
 
