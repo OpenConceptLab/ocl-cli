@@ -476,3 +476,16 @@ def test_an_encoded_prefix_and_a_semicolon_in_an_identifier_still_work(httpx_moc
     httpx_mock.add_response(json={})
     OCLAPIClient(base_url="https://api.example.test/my api").get_concept("X", "S", "a;b")
     assert httpx_mock.get_requests()[0].url.raw_path == b"/my%20api/orgs/X/sources/S/concepts/a%3Bb/"
+
+
+@pytest.mark.parametrize("base", ["https://api.example.test/api;v=1", "https://api.example.test/api%2520v1"])
+def test_a_prefix_with_a_parameter_or_a_literal_escape_still_works(httpx_mock, base):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url=base).get_org("X")
+    assert len(httpx_mock.get_requests()) == 1
+
+
+def test_a_path_that_keeps_decoding_is_refused(httpx_mock):
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url="https://api.example.test/api").get("https://api.example.test/api/%" + "25" * 50 + "61/")
+    assert httpx_mock.get_requests() == []

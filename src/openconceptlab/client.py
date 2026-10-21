@@ -76,15 +76,21 @@ def _resolve_dot_segments(path: str) -> str:
     return "/" + "/".join(parts)
 
 
-def _path_readings(path: str) -> tuple[str, ...]:
+def _path_readings(path: str) -> Optional[tuple[str, ...]]:
     """Ways a server or gateway may route a decoded path.
 
     As is; with dot segments resolved; with backslashes read as slashes; and
     decoded until it stops changing, with ``;`` parameters dropped from each segment.
+    None when the path is still changing after a few decoding passes.
     """
     deep = path
-    while (decoded := unquote(deep)) != deep:
+    for _ in range(4):
+        decoded = unquote(deep)
+        if decoded == deep:
+            break
         deep = decoded
+    else:
+        return None
     deep = "/".join(part.split(";")[0] for part in deep.replace("\\", "/").split("/"))
     return (
         path,
@@ -181,25 +187,30 @@ class OCLAPIClient:
         """Refuse any request outside the API's origin and path: the token goes only there.
 
         Hosts are compared in their encoded (punycode) form. A path prefix must hold
-        for the raw path and for every reading of the decoded one (``_path_readings``).
+        for the raw path, and for each reading of the decoded path against the same
+        reading of the prefix (``_path_readings``).
         """
         base, url = self._base, request.url
         if url.userinfo:
             raise APIError("Refusing to send a request with credentials in its URL", status_code=0)
-        prefix = base.path.rstrip("/")
-        raw_prefix = base.raw_path.decode("ascii").rstrip("/")
-        raw_path = url.raw_path.decode("ascii").split("?")[0]
-        if (
-            (url.scheme, url.raw_host, url.port) != (base.scheme, base.raw_host, base.port)
-            or (prefix and not (
-                _within(raw_path, raw_prefix) and all(_within(path, prefix) for path in _path_readings(url.path))
-            ))
-        ):
+        if (url.scheme, url.raw_host, url.port) != (base.scheme, base.raw_host, base.port) or not self._within_prefix(url):
             raise APIError(
-                f"Refusing to send a request outside {base.scheme}://{base.raw_host.decode()}{prefix}: "
+                f"Refusing to send a request outside {base.scheme}://{base.raw_host.decode()}{base.path.rstrip('/')}: "
                 f"{url.raw_host.decode('ascii', 'replace')}",
                 status_code=0,
             )
+
+    def _within_prefix(self, url: httpx.URL) -> bool:
+        prefix = self._base.path.rstrip("/")
+        if not prefix:
+            return True
+        raw_prefix = self._base.raw_path.decode("ascii").rstrip("/")
+        if not _within(url.raw_path.decode("ascii").split("?")[0], raw_prefix):
+            return False
+        readings, prefix_readings = _path_readings(url.path), _path_readings(prefix)
+        return bool(readings and prefix_readings) and all(
+            _within(path, p) for path, p in zip(readings, prefix_readings)
+        )
 
     def close(self):
         self.client.close()
