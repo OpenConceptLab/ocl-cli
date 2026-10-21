@@ -6,7 +6,7 @@ The open core shared by the `ocl` command and other OCL tools.
 import platform
 import sys
 from typing import Any, Optional
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import httpx
 from tenacity import (
@@ -1671,6 +1671,11 @@ class OCLAPIClient:
 
     def fetch_cascade_children(self, concept_url: str) -> set[str]:
         """Fetch child concept URLs via cascade for a given concept expression."""
+        # The expression comes from data, so it may only name its own cascade endpoint.
+        if "?" in concept_url or "#" in concept_url or any(
+            part in (".", "..") for part in unquote(concept_url).split("/")
+        ):
+            return set()
         url = concept_url.rstrip("/") + "/cascade/"
         params = {
             "method": "sourcetoconcepts",

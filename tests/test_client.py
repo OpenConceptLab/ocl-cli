@@ -440,3 +440,23 @@ def test_a_redirect_to_a_malformed_host_raises_api_error(httpx_mock, follow_redi
     httpx_mock.add_response(url=f"{BASE}/x/", status_code=302, headers={"Location": "https://xn--a.example/y/"})
     with pytest.raises(APIError):
         OCLAPIClient(base_url=BASE, token="t").request("GET", "/x/", follow_redirects=follow_redirects)
+
+
+@pytest.mark.parametrize("expression", [
+    "/orgs/X/sources/S/concepts/../", "/orgs/X/sources/S/concepts/./", "/orgs/X/sources/S/concepts/%2e%2e/",
+    "/orgs/X/sources/S/concepts/1?x=/", "/orgs/X/sources/S/concepts/1#/",
+])
+def test_cascade_children_of_an_expression_that_would_change_the_endpoint_are_not_fetched(
+    httpx_mock, no_retry_wait, expression
+):
+    assert OCLAPIClient(base_url=BASE, token="t").fetch_cascade_children(expression) == set()
+    assert httpx_mock.get_requests() == []
+
+
+def test_cascade_children_are_fetched_for_a_concept_expression(httpx_mock):
+    httpx_mock.add_response(
+        url=re.compile(rf"{re.escape(BASE)}/orgs/X/sources/S/concepts/1/cascade/\?.*"),
+        json={"entry": [{"type": "Concept", "url": "/orgs/X/sources/S/concepts/2/"}]},
+    )
+    children = OCLAPIClient(base_url=BASE, token="t").fetch_cascade_children("/orgs/X/sources/S/concepts/1/")
+    assert children == {"/orgs/X/sources/S/concepts/2/"}
