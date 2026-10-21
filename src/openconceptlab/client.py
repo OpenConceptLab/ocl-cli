@@ -853,6 +853,36 @@ class OCLAPIClient:
             "expansion_url": None,
         }
 
+    def list_expansion_concepts(
+        self,
+        owner: str,
+        collection: str,
+        collection_version: str,
+        expansion_id: Optional[str] = None,
+        owner_type: str = "orgs",
+        query: Optional[str] = None,
+        limit: int = 20,
+        page: int = 1,
+    ) -> dict:
+        """List the concepts in a collection version's expansion.
+
+        Uses the version's default expansion when ``expansion_id`` is not given.
+        """
+        _validate_owner_type(owner_type)
+        version_endpoint = f"/{owner_type}/{owner}/collections/{collection}/{collection_version}/"
+        if expansion_id:
+            expansion_url = f"{version_endpoint}expansions/{expansion_id}/"
+        else:
+            expansion_url = self.get(version_endpoint).get("expansion_url")
+            if not expansion_url:
+                raise APIError(
+                    "This collection version has no default expansion", status_code=404
+                )
+        params: dict[str, Any] = {"limit": limit, "page": page}
+        if query:
+            params["q"] = query
+        return self._get_list(f"{expansion_url.rstrip('/')}/concepts/", params=params)
+
     def list_collection_refs(
         self,
         owner: str,

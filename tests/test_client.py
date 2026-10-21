@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 from tenacity import wait_none
 
-from openconceptlab import OCLAPIClient, __version__
+from openconceptlab import APIError, OCLAPIClient, __version__
 
 BASE = "https://api.example.test"
 
@@ -120,3 +120,34 @@ def test_match_terms_still_become_name_rows_without_the_reranker(httpx_mock):
     req = httpx_mock.get_request()
     assert json.loads(req.content)["rows"] == [{"name": "fever"}, {"name": "cough"}]
     assert "reranker" not in req.url.params
+
+
+def test_expansion_concepts_by_id(httpx_mock):
+    httpx_mock.add_response(
+        url=re.compile(r".*/orgs/PIH/collections/HIV/v1/expansions/e1/concepts/.*"),
+        json=[{"id": "1"}],
+        headers={"num_found": "40"},
+    )
+    out = OCLAPIClient(base_url=BASE).list_expansion_concepts("PIH", "HIV", "v1", expansion_id="e1", query="cd4", limit=5)
+    req = httpx_mock.get_request()
+    assert req.url.params["q"] == "cd4" and req.url.params["limit"] == "5"
+    assert out == {"count": 40, "results": [{"id": "1"}]}
+
+
+def test_expansion_concepts_from_the_default_expansion(httpx_mock):
+    httpx_mock.add_response(
+        url=f"{BASE}/orgs/PIH/collections/HIV/v1/",
+        json={"expansion_url": "/orgs/PIH/collections/HIV/v1/expansions/autoexpand-v1/"},
+    )
+    httpx_mock.add_response(
+        url=re.compile(r".*/expansions/autoexpand-v1/concepts/.*"), json=[], headers={"num_found": "0"}
+    )
+    out = OCLAPIClient(base_url=BASE).list_expansion_concepts("PIH", "HIV", "v1")
+    assert out == {"count": 0, "results": []}
+
+
+def test_expansion_concepts_without_a_default_expansion(httpx_mock):
+    httpx_mock.add_response(url=f"{BASE}/orgs/PIH/collections/HIV/v1/", json={"expansion_url": None})
+    with pytest.raises(APIError) as err:
+        OCLAPIClient(base_url=BASE).list_expansion_concepts("PIH", "HIV", "v1")
+    assert err.value.status_code == 404
