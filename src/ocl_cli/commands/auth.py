@@ -26,8 +26,9 @@ def login(ctx):
     token = token.strip()
 
     # Validate the token by calling GET /user/
+    from ocl_cli import CLIENT_NAME
     from ocl_cli.api_client import OCLAPIClient
-    test_client = OCLAPIClient(base_url=server.base_url, token=token)
+    test_client = OCLAPIClient(base_url=server.base_url, token=token, client_name=CLIENT_NAME)
     try:
         user = test_client.get_user()
         config.set_token(server.server_id, token)

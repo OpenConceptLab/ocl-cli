@@ -70,25 +70,43 @@ class OCLAPIClient:
 
     DEFAULT_BASE_URL = "https://api.openconceptlab.org"
 
-    def __init__(self, base_url: Optional[str] = None, token: Optional[str] = None):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        token: Optional[str] = None,
+        *,
+        auth_scheme: str = "Token",
+        client_name: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        timeout: float = 30.0,
+    ):
+        """Create a client.
+
+        ``auth_scheme`` is ``"Token"`` for an OCL API token or ``"Bearer"`` for an
+        OIDC access token. ``client_name`` identifies the calling tool in
+        ``X-OCL-CLIENT`` and the User-Agent. ``headers`` are sent on every request
+        and override the defaults.
+        """
         self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         self.token = token
         self.debug = False
         self.show_request = False
         self._show_request_server_printed = False
 
-        headers = {
+        name = client_name or f"openconceptlab/{__version__}"
+        default_headers = {
             "Accept": "application/json",
-            "X-OCL-CLIENT": f"ocl-cli/{__version__}",
-            "User-Agent": f"ocl-cli/{__version__} (httpx/{httpx.__version__}; python/{platform.python_version()})",
+            "X-OCL-CLIENT": name,
+            "User-Agent": f"{name} (httpx/{httpx.__version__}; python/{platform.python_version()})",
         }
         if self.token:
-            headers["Authorization"] = f"Token {self.token}"
+            default_headers["Authorization"] = f"{auth_scheme} {self.token}"
+        default_headers.update(headers or {})
 
         self.client = httpx.Client(
             base_url=self.base_url,
-            headers=headers,
-            timeout=30.0,
+            headers=default_headers,
+            timeout=timeout,
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
         )
 

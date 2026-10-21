@@ -7,7 +7,7 @@ import sys
 
 import click
 
-from ocl_cli import __version__
+from ocl_cli import CLIENT_NAME, __version__
 from ocl_cli.api_client import APIError, OCLAPIClient
 from ocl_cli.config import CLIConfig
 from ocl_cli.output import output_error
@@ -29,7 +29,7 @@ def cli(ctx, json_output, server_id, token, debug, show_request):
     server = config.get_server(server_id)
     resolved_token = config.resolve_token(server, token_override=token)
 
-    client = OCLAPIClient(base_url=server.base_url, token=resolved_token)
+    client = OCLAPIClient(base_url=server.base_url, token=resolved_token, client_name=CLIENT_NAME)
     client.debug = debug
     client.show_request = show_request
 
