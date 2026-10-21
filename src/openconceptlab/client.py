@@ -76,28 +76,26 @@ def _resolve_dot_segments(path: str) -> str:
     return "/" + "/".join(parts)
 
 
-def _path_readings(path: str) -> Optional[tuple[str, ...]]:
+def _path_readings(path: str) -> Optional[list[str]]:
     """Ways a server or gateway may route a decoded path.
 
-    As is; with dot segments resolved; with backslashes read as slashes; and
-    decoded until it stops changing, with ``;`` parameters dropped from each segment.
-    None when the path is still changing after a few decoding passes.
+    At each of five decoding depths: as is; with dot segments resolved; with
+    backslashes read as slashes; and with ``;`` parameters dropped from each segment
+    too. Every path gives the same number of readings, so two paths can be compared
+    reading by reading. None when the path is still changing after the last depth.
     """
-    deep = path
-    for _ in range(4):
-        decoded = unquote(deep)
-        if decoded == deep:
-            break
-        deep = decoded
-    else:
-        return None
-    deep = "/".join(part.split(";")[0] for part in deep.replace("\\", "/").split("/"))
-    return (
-        path,
-        _resolve_dot_segments(path),
-        _resolve_dot_segments(path.replace("\\", "/")),
-        _resolve_dot_segments(deep),
-    )
+    readings: list[str] = []
+    for _ in range(5):
+        slashed = path.replace("\\", "/")
+        unparameterized = "/".join(part.split(";")[0] for part in slashed.split("/"))
+        readings += [
+            path,
+            _resolve_dot_segments(path),
+            _resolve_dot_segments(slashed),
+            _resolve_dot_segments(unparameterized),
+        ]
+        path, previous = unquote(path), path
+    return readings if path == previous else None
 
 
 def _within(path: str, prefix: str) -> bool:

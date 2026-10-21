@@ -489,3 +489,10 @@ def test_a_path_that_keeps_decoding_is_refused(httpx_mock):
     with pytest.raises(APIError):
         OCLAPIClient(base_url="https://api.example.test/api").get("https://api.example.test/api/%" + "25" * 50 + "61/")
     assert httpx_mock.get_requests() == []
+
+
+def test_a_path_that_leaves_the_prefix_at_an_intermediate_decoding_is_refused(httpx_mock):
+    base = "https://api.example.test/api%2520v1"
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url=base).get(f"{base}/%252e%252e/api%252520v1/x/")
+    assert httpx_mock.get_requests() == []
