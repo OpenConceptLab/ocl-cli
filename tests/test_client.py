@@ -210,3 +210,24 @@ def test_changelog_errors_raise(httpx_mock):
     with pytest.raises(APIError) as err:
         OCLAPIClient(base_url=BASE, token="t").changelog("source", V1, V2)
     assert err.value.status_code == 404
+
+
+def test_expansion_url_on_another_host_is_refused(httpx_mock):
+    httpx_mock.add_response(
+        url=f"{BASE}/orgs/PIH/collections/HIV/v1/",
+        json={"expansion_url": "https://elsewhere.example/orgs/PIH/collections/HIV/v1/expansions/e1/"},
+    )
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url=BASE, token="t").list_expansion_concepts("PIH", "HIV", "v1")
+    assert len(httpx_mock.get_requests()) == 1
+
+
+def test_relative_path_cannot_leave_base_url_prefix(httpx_mock):
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url="https://api.example.test/ocl-api").get("../other/")
+    assert httpx_mock.get_requests() == []
+
+
+def test_same_origin_absolute_url_is_allowed(httpx_mock):
+    httpx_mock.add_response(url=f"{BASE}/x/", json={"ok": True})
+    assert OCLAPIClient(base_url=BASE).get(f"{BASE}/x/") == {"ok": True}

@@ -96,6 +96,7 @@ class OCLAPIClient:
         and override the defaults.
         """
         self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
+        self._base = httpx.URL(self.base_url)
         self.token = token
         self.debug = False
         self.show_request = False
@@ -117,7 +118,21 @@ class OCLAPIClient:
             headers=merged,
             timeout=timeout,
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+            event_hooks={"request": [self._check_destination]},
         )
+
+    def _check_destination(self, request: httpx.Request) -> None:
+        """Refuse any request outside the API's origin and path: the token goes only there."""
+        base, url = self._base, request.url
+        prefix = base.path.rstrip("/")
+        if (
+            (url.scheme, url.host, url.port) != (base.scheme, base.host, base.port)
+            or (prefix and url.path != prefix and not url.path.startswith(prefix + "/"))
+        ):
+            raise APIError(
+                f"Refusing to send a request outside {base.scheme}://{base.host}: {url.host}",
+                status_code=0,
+            )
 
     def close(self):
         self.client.close()
