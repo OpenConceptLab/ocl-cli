@@ -1,3 +1,5 @@
+import json
+import re
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -87,3 +89,34 @@ def test_cli_names_itself_to_the_api():
     ):
         CliRunner().invoke(cli, ["repo", "--help"])
     assert client_cls.call_args.kwargs["client_name"] == CLIENT_NAME
+
+
+MATCH_URL = re.compile(r"https://api\.example\.test/concepts/\$match/.*")
+
+
+def test_match_sends_full_rows_and_the_reranker(httpx_mock):
+    httpx_mock.add_response(method="POST", url=MATCH_URL, json=[{"row": {"name": "fever"}, "results": []}])
+    out = OCLAPIClient(base_url=BASE, token="t").match_concepts(
+        [],
+        "/orgs/CIEL/sources/CIEL/",
+        rows=[{"name": "fever", "concept_class": "Diagnosis"}],
+        reranker=True,
+        limit=3,
+    )
+    req = httpx_mock.get_request()
+    assert json.loads(req.content) == {
+        "rows": [{"name": "fever", "concept_class": "Diagnosis"}],
+        "target_repo_url": "/orgs/CIEL/sources/CIEL/",
+    }
+    assert req.url.params["reranker"] == "true"
+    assert req.url.params["semantic"] == "true"
+    assert req.url.params["limit"] == "3"
+    assert out == {"count": 1, "results": [{"row": {"name": "fever"}, "results": []}]}
+
+
+def test_match_terms_still_become_name_rows_without_the_reranker(httpx_mock):
+    httpx_mock.add_response(method="POST", url=MATCH_URL, json=[])
+    OCLAPIClient(base_url=BASE, token="t").match_concepts(["fever", "cough"], "/orgs/CIEL/sources/CIEL/")
+    req = httpx_mock.get_request()
+    assert json.loads(req.content)["rows"] == [{"name": "fever"}, {"name": "cough"}]
+    assert "reranker" not in req.url.params

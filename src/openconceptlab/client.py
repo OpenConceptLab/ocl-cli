@@ -767,9 +767,17 @@ class OCLAPIClient:
         include_mappings: bool = False,
         semantic: bool = True,
         verbose: bool = False,
+        reranker: bool = False,
+        rows: Optional[list[dict]] = None,
     ) -> dict:
-        """Match concepts using the $match endpoint."""
-        rows = [{"name": term} for term in terms]
+        """Match concepts using the $match endpoint.
+
+        ``rows`` sends full rows (a ``name`` plus properties such as
+        ``concept_class``, ``datatype``, ``description`` or ``synonyms``) instead
+        of building ``{"name": term}`` rows from ``terms``. ``reranker`` asks OCL
+        to rerank the candidates.
+        """
+        rows = rows if rows is not None else [{"name": term} for term in terms]
         body: dict[str, Any] = {
             "rows": rows,
             "target_repo_url": target_repo_url,
@@ -794,6 +802,8 @@ class OCLAPIClient:
             params["includeMappings"] = True
         if verbose:
             params["verbose"] = True
+        if reranker:
+            params["reranker"] = True
 
         result = self.post("/concepts/$match/", params=params, json=body)
         return self._normalize(result)
