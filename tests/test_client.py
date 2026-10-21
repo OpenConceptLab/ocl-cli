@@ -244,8 +244,10 @@ def no_retry_wait(monkeypatch):
 
 def test_an_identifier_is_encoded_as_one_path_segment(httpx_mock):
     httpx_mock.add_response(json={})
-    OCLAPIClient(base_url=BASE).get_concept("CIEL", "CIEL", "A B+50%")
-    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/A%20B%2B50%25/"
+    OCLAPIClient(base_url=BASE).get_concept("CIEL", "CIEL", "A B+50%é&:[]")
+    assert httpx_mock.get_requests()[0].url.raw_path == (
+        b"/orgs/CIEL/sources/CIEL/concepts/A%20B%2B50%25%C3%A9%26%3A%5B%5D/"
+    )
 
 
 def test_a_percent_escape_in_an_identifier_is_sent_literally(httpx_mock):
@@ -408,12 +410,6 @@ def test_recreate_collection_refuses_an_export_whose_id_would_change_the_endpoin
     assert httpx_mock.get_requests() == []
     assert result.exit_code == 1
     assert "Invalid identifier" in result.output
-
-
-def test_reserved_and_non_ascii_characters_are_encoded(httpx_mock):
-    httpx_mock.add_response(json={})
-    OCLAPIClient(base_url=BASE).get_concept("CIEL", "CIEL", "é&:[] x")
-    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/%C3%A9%26%3A%5B%5D%20x/"
 
 
 def test_get_still_takes_a_whole_path(httpx_mock):

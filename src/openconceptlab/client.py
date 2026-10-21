@@ -76,10 +76,6 @@ def _resolve_dot_segments(path: str) -> str:
     return "/" + "/".join(parts)
 
 
-def _within(path: str, prefix: str) -> bool:
-    return path == prefix or path.startswith(prefix + "/")
-
-
 def _validate_owner_type(owner_type: str) -> None:
     if owner_type not in ("users", "orgs"):
         raise ValueError(f"owner_type must be 'users' or 'orgs', got '{owner_type}'")
@@ -173,7 +169,7 @@ class OCLAPIClient:
         readings = (url.path, _resolve_dot_segments(url.path), _resolve_dot_segments(url.path.replace("\\", "/")))
         if (
             (url.scheme, url.raw_host, url.port) != (base.scheme, base.raw_host, base.port)
-            or (prefix and not all(_within(path, prefix) for path in readings))
+            or (prefix and not all(path == prefix or path.startswith(prefix + "/") for path in readings))
         ):
             raise APIError(
                 f"Refusing to send a request outside {base.scheme}://{base.raw_host.decode()}{prefix}: "
