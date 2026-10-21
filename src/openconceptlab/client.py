@@ -6,6 +6,7 @@ The open core shared by the `ocl` command and other OCL tools.
 import platform
 import sys
 from typing import Any, Optional
+from urllib.parse import quote
 
 import httpx
 from tenacity import (
@@ -51,6 +52,30 @@ def _repo_type_stem(repo_type: str) -> str:
         raise ValueError(f"repo_type must be 'source' or 'collection', got '{repo_type}'")
 
 
+def _segment(value: Any) -> str:
+    """Encode a caller's value (an ID, a version, a key) as one path segment.
+
+    Refuses a value that would name a different endpoint: empty, ``.``, ``..`` or
+    containing ``/``, which the server decodes back into a separator.
+    """
+    text = str(value)
+    if text in ("", ".", "..") or "/" in text:
+        raise APIError(f"Invalid identifier {text!r}: it can't be used in an API path", status_code=0)
+    return quote(text, safe="")
+
+
+def _resolve_dot_segments(path: str) -> str:
+    """The path as a server that decodes and normalizes it would route it."""
+    parts: list[str] = []
+    for part in path.replace("\\", "/").split("/"):
+        if part == "..":
+            if parts:
+                parts.pop()
+        elif part not in ("", "."):
+            parts.append(part)
+    return "/" + "/".join(parts)
+
+
 def _validate_owner_type(owner_type: str) -> None:
     if owner_type not in ("users", "orgs"):
         raise ValueError(f"owner_type must be 'users' or 'orgs', got '{owner_type}'")
@@ -67,10 +92,18 @@ def _build_repo_endpoint(
     """Build a repository-scoped endpoint URL."""
     _validate_owner_type(owner_type)
     stem = _repo_type_stem(repo_type)
-    base = f"/{owner_type}/{owner}/{stem}/{repo}"
+    base = f"/{owner_type}/{_segment(owner)}/{stem}/{_segment(repo)}"
     if repo_version:
-        base = f"{base}/{repo_version}"
+        base = f"{base}/{_segment(repo_version)}"
     return f"{base}/{suffix}" if suffix else f"{base}/"
+
+
+class _HTTPClient(httpx.Client):
+    def build_request(self, *args: Any, **kwargs: Any) -> httpx.Request:
+        try:
+            return super().build_request(*args, **kwargs)
+        except UnicodeError as e:  # idna's error for a host that isn't a valid domain name
+            raise APIError(f"Refusing to send a request to an invalid host: {e}", status_code=0) from e
 
 
 class OCLAPIClient:
@@ -113,7 +146,7 @@ class OCLAPIClient:
         merged = httpx.Headers(default_headers)
         merged.update(headers or {})
 
-        self.client = httpx.Client(
+        self.client = _HTTPClient(
             base_url=self.base_url,
             headers=merged,
             timeout=timeout,
@@ -122,15 +155,23 @@ class OCLAPIClient:
         )
 
     def _check_destination(self, request: httpx.Request) -> None:
-        """Refuse any request outside the API's origin and path: the token goes only there."""
+        """Refuse any request outside the API's origin and path: the token goes only there.
+
+        Hosts are compared in their encoded (punycode) form, and the path as a server
+        that decodes and normalizes it would route it.
+        """
         base, url = self._base, request.url
+        if url.userinfo:
+            raise APIError("Refusing to send a request with credentials in its URL", status_code=0)
         prefix = base.path.rstrip("/")
+        path = _resolve_dot_segments(url.path)
         if (
-            (url.scheme, url.host, url.port) != (base.scheme, base.host, base.port)
-            or (prefix and url.path != prefix and not url.path.startswith(prefix + "/"))
+            (url.scheme, url.raw_host, url.port) != (base.scheme, base.raw_host, base.port)
+            or (prefix and path != prefix and not path.startswith(prefix + "/"))
         ):
             raise APIError(
-                f"Refusing to send a request outside {base.scheme}://{base.host}: {url.host}",
+                f"Refusing to send a request outside {base.scheme}://{base.raw_host.decode()}{prefix}: "
+                f"{url.raw_host.decode('ascii', 'replace')}",
                 status_code=0,
             )
 
@@ -338,7 +379,7 @@ class OCLAPIClient:
 
     def get_org(self, org: str) -> dict:
         """Get a specific organization."""
-        return self.get(f"/orgs/{org}/")
+        return self.get(f"/orgs/{_segment(org)}/")
 
     def list_org_repos(
         self,
@@ -351,7 +392,7 @@ class OCLAPIClient:
         params: dict[str, Any] = {"limit": limit, "page": page}
         if repo_type != "all":
             params["repoType"] = "Source" if repo_type == "source" else "Collection"
-        return self._get_list(f"/orgs/{org}/repos/", params=params)
+        return self._get_list(f"/orgs/{_segment(org)}/repos/", params=params)
 
     # ── User operations ──────────────────────────────────────────
 
@@ -372,7 +413,7 @@ class OCLAPIClient:
 
     def get_user_detail(self, username: str) -> dict:
         """Get a specific user by username."""
-        return self.get(f"/users/{username}/")
+        return self.get(f"/users/{_segment(username)}/")
 
     def list_user_repos(
         self,
@@ -385,15 +426,15 @@ class OCLAPIClient:
         params: dict[str, Any] = {"limit": limit, "page": page}
         if repo_type != "all":
             params["repoType"] = "Source" if repo_type == "source" else "Collection"
-        return self._get_list(f"/users/{username}/repos/", params=params)
+        return self._get_list(f"/users/{_segment(username)}/repos/", params=params)
 
     def list_user_orgs(self, username: str, limit: int = 100) -> dict:
         """List organizations a user belongs to."""
-        return self._get_list(f"/users/{username}/orgs/", params={"limit": limit, "verbose": "true"})
+        return self._get_list(f"/users/{_segment(username)}/orgs/", params={"limit": limit, "verbose": "true"})
 
     def get_org_members(self, org: str, limit: int = 100) -> dict:
         """List members of an organization."""
-        return self._get_list(f"/orgs/{org}/members/", params={"limit": limit})
+        return self._get_list(f"/orgs/{_segment(org)}/members/", params={"limit": limit})
 
     def search_repos(
         self,
@@ -425,11 +466,11 @@ class OCLAPIClient:
 
         # Use scoped endpoint when owner is specified
         if owner and owner_type and owner_type != "all":
-            ot = owner_type  # "orgs" or "users"
-            endpoint = f"/{ot}/{owner}/repos/"
+            _validate_owner_type(owner_type)
+            endpoint = f"/{owner_type}/{_segment(owner)}/repos/"
         elif owner:
             # Default to orgs scope
-            endpoint = f"/orgs/{owner}/repos/"
+            endpoint = f"/orgs/{_segment(owner)}/repos/"
         else:
             # Global search — add owner/ownerType as query params
             endpoint = "/repos/"
@@ -555,12 +596,12 @@ class OCLAPIClient:
         """Get a single concept."""
         _validate_owner_type(owner_type)
         stem = _repo_type_stem("source")
-        base = f"/{owner_type}/{owner}/{stem}/{source}"
+        base = f"/{owner_type}/{_segment(owner)}/{stem}/{_segment(source)}"
         if repo_version:
-            base = f"{base}/{repo_version}"
-        endpoint = f"{base}/concepts/{concept_id}/"
+            base = f"{base}/{_segment(repo_version)}"
+        endpoint = f"{base}/concepts/{_segment(concept_id)}/"
         if concept_version:
-            endpoint = f"{base}/concepts/{concept_id}/{concept_version}/"
+            endpoint = f"{base}/concepts/{_segment(concept_id)}/{_segment(concept_version)}/"
 
         params: dict[str, Any] = {}
         if include_mappings:
@@ -583,7 +624,7 @@ class OCLAPIClient:
     ) -> dict:
         """List version history for a concept."""
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/versions/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/versions/"
         return self._get_list(endpoint, params={"limit": limit, "page": page})
 
     def get_concept_names(
@@ -595,7 +636,7 @@ class OCLAPIClient:
     ) -> dict:
         """List names for a concept."""
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/names/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/names/"
         return self._get_list(endpoint)
 
     def get_concept_descriptions(
@@ -607,7 +648,7 @@ class OCLAPIClient:
     ) -> dict:
         """List descriptions for a concept."""
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/descriptions/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/descriptions/"
         return self._get_list(endpoint)
 
     def get_concept_extras(
@@ -619,7 +660,7 @@ class OCLAPIClient:
     ) -> dict:
         """Get extras (custom attributes) for a concept."""
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/extras/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/extras/"
         return self.get(endpoint)
 
     def search_mappings(
@@ -701,10 +742,10 @@ class OCLAPIClient:
     ) -> dict:
         """Get a single mapping."""
         _validate_owner_type(owner_type)
-        base = f"/{owner_type}/{owner}/sources/{source}"
+        base = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}"
         if repo_version:
-            base = f"{base}/{repo_version}"
-        return self.get(f"{base}/mappings/{mapping_id}/")
+            base = f"{base}/{_segment(repo_version)}"
+        return self.get(f"{base}/mappings/{_segment(mapping_id)}/")
 
     def get_mapping_versions(
         self,
@@ -717,7 +758,7 @@ class OCLAPIClient:
     ) -> dict:
         """List version history for a mapping."""
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/mappings/{mapping_id}/versions/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/mappings/{_segment(mapping_id)}/versions/"
         return self._get_list(endpoint, params={"limit": limit, "page": page})
 
     def cascade(
@@ -744,7 +785,7 @@ class OCLAPIClient:
         """Execute $cascade operation on a concept."""
         endpoint = _build_repo_endpoint(
             owner_type, owner, repo_type, repo, repo_version,
-            suffix=f"concepts/{concept_id}/$cascade/"
+            suffix=f"concepts/{_segment(concept_id)}/$cascade/"
         )
 
         params: dict[str, Any] = {}
@@ -841,7 +882,7 @@ class OCLAPIClient:
     ) -> dict:
         """List expansions for a collection version."""
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/collections/{collection}/{collection_version}/expansions/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/{_segment(collection_version)}/expansions/"
         return self._get_list(endpoint, params={"verbose": True})
 
     def get_expansion(
@@ -857,16 +898,16 @@ class OCLAPIClient:
 
         if expansion_id:
             if collection_version:
-                endpoint = f"/{owner_type}/{owner}/collections/{collection}/{collection_version}/expansions/{expansion_id}/"
+                endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/{_segment(collection_version)}/expansions/{_segment(expansion_id)}/"
             else:
-                endpoint = f"/{owner_type}/{owner}/collections/{collection}/expansions/{expansion_id}/"
+                endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/expansions/{_segment(expansion_id)}/"
             return self.get(endpoint, params={"verbose": True})
 
         # Look up default expansion from collection version
         if collection_version:
-            col_endpoint = f"/{owner_type}/{owner}/collections/{collection}/{collection_version}/"
+            col_endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/{_segment(collection_version)}/"
         else:
-            col_endpoint = f"/{owner_type}/{owner}/collections/{collection}/"
+            col_endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/"
 
         col_data = self.get(col_endpoint)
         expansion_url = col_data.get("expansion_url")
@@ -893,9 +934,9 @@ class OCLAPIClient:
         Uses the version's default expansion when ``expansion_id`` is not given.
         """
         _validate_owner_type(owner_type)
-        version_endpoint = f"/{owner_type}/{owner}/collections/{collection}/{collection_version}/"
+        version_endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/{_segment(collection_version)}/"
         if expansion_id:
-            expansion_url = f"{version_endpoint}expansions/{expansion_id}/"
+            expansion_url = f"{version_endpoint}expansions/{_segment(expansion_id)}/"
         else:
             expansion_url = self.get(version_endpoint).get("expansion_url")
             if not expansion_url:
@@ -945,9 +986,9 @@ class OCLAPIClient:
     ) -> dict:
         """List references in a collection."""
         _validate_owner_type(owner_type)
-        base = f"/{owner_type}/{owner}/collections/{collection}"
+        base = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}"
         if collection_version:
-            base = f"{base}/{collection_version}"
+            base = f"{base}/{_segment(collection_version)}"
         endpoint = f"{base}/references/"
         return self._get_list(endpoint, params={"limit": limit, "page": page})
 
@@ -982,7 +1023,7 @@ class OCLAPIClient:
         self._require_auth()
         _validate_owner_type(owner_type)
         stem = _repo_type_stem(repo_type)
-        endpoint = f"/{owner_type}/{owner}/{stem}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/{stem}/"
 
         body: dict[str, Any] = {"id": repo_id, "short_code": repo_id, "name": name}
         if description:
@@ -1060,7 +1101,7 @@ class OCLAPIClient:
         self._require_auth()
         _validate_owner_type(owner_type)
         stem = _repo_type_stem(repo_type)
-        endpoint = f"/{owner_type}/{owner}/{stem}/{repo}/{version_id}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/{stem}/{_segment(repo)}/{_segment(version_id)}/"
         body = {k: v for k, v in fields.items() if v is not None}
         return self.patch(endpoint, json=body)
 
@@ -1084,7 +1125,7 @@ class OCLAPIClient:
         if not names:
             raise ValueError("At least one name is required")
 
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/"
         body: dict[str, Any] = {
             "id": concept_id,
             "concept_class": concept_class,
@@ -1113,7 +1154,7 @@ class OCLAPIClient:
         """Update an existing concept."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/"
         body = {k: v for k, v in fields.items() if v is not None}
         if update_comment:
             body["update_comment"] = update_comment
@@ -1145,7 +1186,7 @@ class OCLAPIClient:
         """Hard-delete a concept (?hardDelete=true). Requires staff token."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/"
         return self.delete(endpoint, params={"hardDelete": "true"})
 
     def add_concept_name(
@@ -1162,7 +1203,7 @@ class OCLAPIClient:
         """Add a name/translation to a concept."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/names/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/names/"
         body: dict[str, Any] = {"name": name, "locale": locale}
         if name_type:
             body["name_type"] = name_type
@@ -1183,7 +1224,7 @@ class OCLAPIClient:
         """Add a description to a concept."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/descriptions/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/descriptions/"
         body: dict[str, Any] = {"description": description, "locale": locale}
         if description_type:
             body["description_type"] = description_type
@@ -1201,7 +1242,7 @@ class OCLAPIClient:
         """Set a custom attribute on a concept."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/extras/{key}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/extras/{_segment(key)}/"
         return self.put(endpoint, json={key: value})
 
     def delete_concept_extra(
@@ -1215,7 +1256,7 @@ class OCLAPIClient:
         """Delete a custom attribute from a concept."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/concepts/{concept_id}/extras/{key}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/concepts/{_segment(concept_id)}/extras/{_segment(key)}/"
         return self.delete(endpoint)
 
     def create_mapping(
@@ -1244,7 +1285,7 @@ class OCLAPIClient:
         if not to_concept_url and not (to_source_url and to_concept_code):
             raise ValueError("to_concept requires either to_concept_url or (to_source_url + to_concept_code)")
 
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/mappings/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/mappings/"
         body: dict[str, Any] = {"map_type": map_type}
 
         if from_concept_url:
@@ -1282,7 +1323,7 @@ class OCLAPIClient:
         """Update an existing mapping."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/mappings/{mapping_id}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/mappings/{_segment(mapping_id)}/"
         body = {k: v for k, v in fields.items() if v is not None}
         if update_comment:
             body["update_comment"] = update_comment
@@ -1314,7 +1355,7 @@ class OCLAPIClient:
         """Hard-delete a mapping (?hardDelete=true). Requires staff token."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{source}/mappings/{mapping_id}/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(source)}/mappings/{_segment(mapping_id)}/"
         return self.delete(endpoint, params={"hardDelete": "true"})
 
     def add_collection_ref(
@@ -1328,7 +1369,7 @@ class OCLAPIClient:
         """Add references to a collection."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/collections/{collection}/references/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/references/"
         body: dict[str, Any] = {"data": {"expressions": expressions}}
         params: dict[str, Any] = {}
         if cascade:
@@ -1345,7 +1386,7 @@ class OCLAPIClient:
         """Remove references from a collection."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/collections/{collection}/references/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/references/"
         # DELETE with body
         response = self.client.request(
             "DELETE", endpoint, json={"references": expressions}
@@ -1366,7 +1407,7 @@ class OCLAPIClient:
         """Create/trigger an expansion for a collection version."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/collections/{collection}/{version}/expansions/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/collections/{_segment(collection)}/{_segment(version)}/expansions/"
         body = {k: v for k, v in params.items() if v is not None}
         return self.post(endpoint, json=body or None)
 
@@ -1386,7 +1427,7 @@ class OCLAPIClient:
         """Clone concepts using $clone operation."""
         self._require_auth()
         _validate_owner_type(owner_type)
-        endpoint = f"/{owner_type}/{owner}/sources/{dest_source}/$clone/"
+        endpoint = f"/{owner_type}/{_segment(owner)}/sources/{_segment(dest_source)}/$clone/"
 
         body: dict[str, Any] = {"expressions": expressions}
         params: dict[str, Any] = {}
@@ -1416,7 +1457,7 @@ class OCLAPIClient:
     ) -> dict:
         """Set a custom attribute on a repository."""
         self._require_auth()
-        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, suffix=f"extras/{key}/")
+        endpoint = _build_repo_endpoint(owner_type, owner, repo_type, repo, suffix=f"extras/{_segment(key)}/")
         return self.put(endpoint, json={key: value})
 
     def delete_repo_extra(
@@ -1431,7 +1472,7 @@ class OCLAPIClient:
         self._require_auth()
         _validate_owner_type(owner_type)
         stem = _repo_type_stem(repo_type)
-        return self.delete(f"/{owner_type}/{owner}/{stem}/{repo}/extras/{key}/")
+        return self.delete(f"/{owner_type}/{_segment(owner)}/{stem}/{_segment(repo)}/extras/{_segment(key)}/")
 
     def get_repo_extras(
         self,
@@ -1447,12 +1488,12 @@ class OCLAPIClient:
     def add_org_member(self, org: str, username: str) -> dict:
         """Add a member to an organization."""
         self._require_auth()
-        return self.put(f"/orgs/{org}/members/{username}/")
+        return self.put(f"/orgs/{_segment(org)}/members/{_segment(username)}/")
 
     def remove_org_member(self, org: str, username: str) -> dict:
         """Remove a member from an organization."""
         self._require_auth()
-        return self.delete(f"/orgs/{org}/members/{username}/")
+        return self.delete(f"/orgs/{_segment(org)}/members/{_segment(username)}/")
 
     # ── Task operations ─────────────────────────────────────────────
 
@@ -1472,7 +1513,7 @@ class OCLAPIClient:
     def get_task(self, task_id: str) -> dict:
         """Get details of a specific task."""
         self._require_auth()
-        return self.get(f"/tasks/{task_id}/")
+        return self.get(f"/tasks/{_segment(task_id)}/")
 
     # ── Organization CRUD ───────────────────────────────────────────
 
@@ -1506,7 +1547,7 @@ class OCLAPIClient:
     def delete_org(self, org: str) -> dict:
         """Delete an organization."""
         self._require_auth()
-        return self.delete(f"/orgs/{org}/")
+        return self.delete(f"/orgs/{_segment(org)}/")
 
     # ── Repository delete ───────────────────────────────────────────
 
@@ -1580,7 +1621,7 @@ class OCLAPIClient:
 
         endpoint = "/importers/bulk-import/"
         if queue:
-            endpoint = f"/importers/bulk-import/{queue}/"
+            endpoint = f"/importers/bulk-import/{_segment(queue)}/"
 
         params = {"update_if_exists": "true" if update_if_exists else "false"}
 
@@ -1612,7 +1653,7 @@ class OCLAPIClient:
         self._require_auth()
         endpoint = "/importers/bulk-import/"
         if queue:
-            endpoint = f"/importers/bulk-import/{queue}/"
+            endpoint = f"/importers/bulk-import/{_segment(queue)}/"
         return self.get(endpoint)
 
     def import_status(self, task_id: str) -> Any:

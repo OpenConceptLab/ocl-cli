@@ -231,3 +231,192 @@ def test_relative_path_cannot_leave_base_url_prefix(httpx_mock):
 def test_same_origin_absolute_url_is_allowed(httpx_mock):
     httpx_mock.add_response(url=f"{BASE}/x/", json={"ok": True})
     assert OCLAPIClient(base_url=BASE).get(f"{BASE}/x/") == {"ok": True}
+
+
+# ── Identifiers in paths, and the origin check (ocl_online#553) ──────────
+
+
+@pytest.fixture
+def no_retry_wait(monkeypatch):
+    for name in ("get", "post", "put", "patch", "delete", "_get_list"):
+        monkeypatch.setattr(getattr(OCLAPIClient, name).retry, "wait", wait_none())
+
+
+def test_an_identifier_is_encoded_as_one_path_segment(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url=BASE).get_concept("CIEL", "CIEL", "A B+50%")
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/A%20B%2B50%25/"
+
+
+def test_a_percent_escape_in_an_identifier_is_sent_literally(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url=BASE).get_concept("CIEL", "CIEL", "a%2Fb")
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/a%252Fb/"
+
+
+def test_identifiers_are_encoded_under_a_base_url_prefix(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url="https://api.example.test/ocl-api").get_concept("X", "S", "a b")
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/ocl-api/orgs/X/sources/S/concepts/a%20b/"
+
+
+# Every method that puts a caller's value in a path, with that value set to v.
+PATH_BUILDERS = {
+    "get_org": lambda c, v: c.get_org(v),
+    "list_org_repos": lambda c, v: c.list_org_repos(v),
+    "get_user_detail": lambda c, v: c.get_user_detail(v),
+    "list_user_repos": lambda c, v: c.list_user_repos(v),
+    "list_user_orgs": lambda c, v: c.list_user_orgs(v),
+    "get_org_members": lambda c, v: c.get_org_members(v),
+    "search_repos owner": lambda c, v: c.search_repos(owner=v),
+    "search_repos scoped owner": lambda c, v: c.search_repos(owner=v, owner_type="users"),
+    "get_repo": lambda c, v: c.get_repo("X", v),
+    "get_repo version": lambda c, v: c.get_repo("X", "R", repo_version=v),
+    "get_repo_versions": lambda c, v: c.get_repo_versions(v, "R"),
+    "search_concepts": lambda c, v: c.search_concepts(owner="X", repo=v),
+    "get_concept": lambda c, v: c.get_concept("X", "S", v),
+    "get_concept repo version": lambda c, v: c.get_concept("X", "S", "C", repo_version=v),
+    "get_concept concept version": lambda c, v: c.get_concept("X", "S", "C", concept_version=v),
+    "get_concept_versions": lambda c, v: c.get_concept_versions("X", "S", v),
+    "get_concept_names": lambda c, v: c.get_concept_names("X", "S", v),
+    "get_concept_descriptions": lambda c, v: c.get_concept_descriptions("X", "S", v),
+    "get_concept_extras": lambda c, v: c.get_concept_extras("X", v, "C"),
+    "search_mappings": lambda c, v: c.search_mappings(owner="X", repo=v),
+    "get_mapping": lambda c, v: c.get_mapping("X", "S", v),
+    "get_mapping repo version": lambda c, v: c.get_mapping("X", "S", "M", repo_version=v),
+    "get_mapping_versions": lambda c, v: c.get_mapping_versions("X", "S", v),
+    "cascade": lambda c, v: c.cascade("X", "S", v),
+    "list_expansions": lambda c, v: c.list_expansions("X", "C", v),
+    "get_expansion": lambda c, v: c.get_expansion("X", "C", expansion_id=v),
+    "get_expansion in a version": lambda c, v: c.get_expansion("X", "C", collection_version="v1", expansion_id=v),
+    "get_expansion default": lambda c, v: c.get_expansion("X", "C", collection_version=v),
+    "list_expansion_concepts": lambda c, v: c.list_expansion_concepts("X", "C", "v1", expansion_id=v),
+    "list_expansion_concepts version": lambda c, v: c.list_expansion_concepts("X", "C", v, expansion_id="e1"),
+    "list_collection_refs": lambda c, v: c.list_collection_refs("X", v),
+    "list_collection_refs version": lambda c, v: c.list_collection_refs("X", "C", collection_version=v),
+    "create_repo": lambda c, v: c.create_repo(v, "R", "Name"),
+    "update_repo": lambda c, v: c.update_repo("X", v, name="n"),
+    "create_repo_version": lambda c, v: c.create_repo_version("X", v, "v1"),
+    "update_repo_version": lambda c, v: c.update_repo_version("X", "R", v, description="d"),
+    "create_concept": lambda c, v: c.create_concept("X", v, "C", "Misc", [{"name": "n", "locale": "en"}]),
+    "update_concept": lambda c, v: c.update_concept("X", "S", v, retired=False),
+    "retire_concept": lambda c, v: c.retire_concept("X", "S", v),
+    "delete_concept": lambda c, v: c.delete_concept("X", "S", v),
+    "add_concept_name": lambda c, v: c.add_concept_name("X", "S", v, "n", "en"),
+    "add_concept_description": lambda c, v: c.add_concept_description("X", "S", v, "d", "en"),
+    "set_concept_extra": lambda c, v: c.set_concept_extra("X", "S", "C", v, 1),
+    "delete_concept_extra": lambda c, v: c.delete_concept_extra("X", "S", "C", v),
+    "create_mapping": lambda c, v: c.create_mapping("X", v, "SAME-AS", from_concept_url="/a/", to_concept_url="/b/"),
+    "update_mapping": lambda c, v: c.update_mapping("X", "S", v, retired=False),
+    "retire_mapping": lambda c, v: c.retire_mapping("X", "S", v),
+    "delete_mapping": lambda c, v: c.delete_mapping("X", "S", v),
+    "add_collection_ref": lambda c, v: c.add_collection_ref("X", v, ["/a/"]),
+    "remove_collection_ref": lambda c, v: c.remove_collection_ref("X", v, ["/a/"]),
+    "create_expansion": lambda c, v: c.create_expansion("X", "C", v),
+    "clone": lambda c, v: c.clone("X", v, ["/a/"]),
+    "set_repo_extra": lambda c, v: c.set_repo_extra("X", "R", v, 1),
+    "delete_repo_extra": lambda c, v: c.delete_repo_extra("X", "R", v),
+    "get_repo_extras": lambda c, v: c.get_repo_extras("X", v),
+    "add_org_member": lambda c, v: c.add_org_member("X", v),
+    "remove_org_member": lambda c, v: c.remove_org_member("X", v),
+    "get_task": lambda c, v: c.get_task(v),
+    "delete_org": lambda c, v: c.delete_org(v),
+    "delete_repo": lambda c, v: c.delete_repo("X", v),
+    "import_file": lambda c, v: c.import_file("unused.json", queue=v),
+    "import_list": lambda c, v: c.import_list(queue=v),
+    "export_status": lambda c, v: c.export_status("X", "R", v),
+    "export_create": lambda c, v: c.export_create("X", "R", v),
+    "export_delete": lambda c, v: c.export_delete("X", "R", v),
+    "export_download": lambda c, v: c.export_download("X", "R", v),
+}
+
+
+@pytest.mark.parametrize("value", ["..", ".", "a/b"])
+@pytest.mark.parametrize("call", PATH_BUILDERS.values(), ids=PATH_BUILDERS.keys())
+def test_an_identifier_that_would_change_the_endpoint_is_refused(httpx_mock, no_retry_wait, call, value):
+    with pytest.raises(APIError) as err:
+        call(OCLAPIClient(base_url=BASE, token="t"), value)
+    assert err.value.status_code == 0
+    assert httpx_mock.get_requests() == []
+
+
+def test_an_empty_identifier_is_refused(httpx_mock, no_retry_wait):
+    client = OCLAPIClient(base_url=BASE, token="t")
+    for call in (lambda: client.get_org(""), lambda: client.update_repo_version("X", "R", "", description="d")):
+        with pytest.raises(APIError):
+            call()
+    assert httpx_mock.get_requests() == []
+
+
+def test_search_repos_refuses_an_unknown_owner_type(httpx_mock):
+    with pytest.raises(ValueError):
+        OCLAPIClient(base_url=BASE).search_repos(owner="X", owner_type="../admin")
+    assert httpx_mock.get_requests() == []
+
+
+@pytest.mark.parametrize("path", ["%2e%2e/other/", "a%2F..%2F..%2Fother/", "..%5C..%5Cother/"])
+def test_an_encoded_dot_segment_cannot_leave_base_url_prefix(httpx_mock, path):
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url="https://api.example.test/ocl-api").get(f"https://api.example.test/ocl-api/{path}")
+    assert httpx_mock.get_requests() == []
+
+
+def test_an_encoded_backslash_inside_the_prefix_is_allowed(httpx_mock):
+    url = "https://api.example.test/ocl-api/orgs/X/sources/S/concepts/A%5CB/"
+    httpx_mock.add_response(url=url, json={"ok": True})
+    assert OCLAPIClient(base_url="https://api.example.test/ocl-api").get(url) == {"ok": True}
+
+
+def test_a_malformed_international_host_is_refused(httpx_mock):
+    with pytest.raises(APIError):
+        OCLAPIClient(base_url=BASE, token="t").get("https://xn--a.example/x/")
+    assert httpx_mock.get_requests() == []
+
+
+def test_an_international_host_matches_its_punycode_form(httpx_mock):
+    httpx_mock.add_response(url="https://xn--bcher-kva.example/x/", json={"ok": True})
+    assert OCLAPIClient(base_url="https://bücher.example").get("https://xn--bcher-kva.example/x/") == {"ok": True}
+
+
+def test_a_url_with_credentials_is_refused(httpx_mock, no_retry_wait):
+    with pytest.raises(APIError) as err:
+        OCLAPIClient(base_url=BASE, token="t").get("https://user:pw@api.example.test/x/")
+    assert "pw" not in str(err.value)
+    assert httpx_mock.get_requests() == []
+
+
+def test_ocl_concept_get_encodes_special_characters(httpx_mock):
+    from ocl_cli.main import cli
+
+    httpx_mock.add_response(json={"id": "A B+50%"})
+    with patch("ocl_cli.main.CLIConfig.load", return_value=_FakeConfig()):
+        result = CliRunner().invoke(cli, ["--json", "concept", "get", "CIEL", "CIEL", "A B+50%"])
+    assert result.exit_code == 0, result.output
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/A%20B%2B50%25/"
+
+
+def test_recreate_collection_refuses_an_export_whose_id_would_change_the_endpoint(httpx_mock, no_retry_wait, tmp_path):
+    from ocl_cli.main import cli
+
+    export = tmp_path / "export.json"
+    export.write_text(json.dumps({"collection": {"id": ".."}, "references": []}))
+    with patch("ocl_cli.main.CLIConfig.load", return_value=_FakeConfig()):
+        result = CliRunner().invoke(cli, [
+            "tool", "recreate-collection", "--input", str(export), "--org", "PIH",
+            "--output", str(tmp_path / "refs.json"), "--no-dry-run",
+        ])
+    assert httpx_mock.get_requests() == []
+    assert result.exit_code == 1
+    assert "Invalid identifier" in result.output
+
+
+def test_reserved_and_non_ascii_characters_are_encoded(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url=BASE).get_concept("CIEL", "CIEL", "é&:[] x")
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/%C3%A9%26%3A%5B%5D%20x/"
+
+
+def test_get_still_takes_a_whole_path(httpx_mock):
+    httpx_mock.add_response(json={})
+    OCLAPIClient(base_url=BASE).get("/orgs/CIEL/sources/CIEL/concepts/a b&c/")
+    assert httpx_mock.get_requests()[0].url.raw_path == b"/orgs/CIEL/sources/CIEL/concepts/a%20b&c/"
