@@ -9,14 +9,14 @@ import sys
 from typing import Any, Optional
 
 import httpx
-
-from ocl_cli import __version__
 from tenacity import (
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
+
+from ocl_cli import __version__
 
 
 class APIError(Exception):

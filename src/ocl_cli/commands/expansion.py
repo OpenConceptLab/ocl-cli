@@ -4,7 +4,7 @@ import click
 
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
-from ocl_cli.output import output_result, format_expansion_list, format_expansion_detail
+from ocl_cli.output import format_expansion_detail, format_expansion_list, output_result
 
 
 @click.group()

@@ -2,7 +2,7 @@
 
 import click
 
-from ocl_cli.output import output_result, format_table
+from ocl_cli.output import format_table, output_result
 
 
 @click.group()

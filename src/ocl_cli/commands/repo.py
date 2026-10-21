@@ -8,8 +8,11 @@ import click
 from ocl_cli.api_client import APIError
 from ocl_cli.main import handle_api_error
 from ocl_cli.output import (
-    output_result, format_repo_list, format_repo_detail,
-    format_version_list, format_extras,
+    format_extras,
+    format_repo_detail,
+    format_repo_list,
+    format_version_list,
+    output_result,
 )
 
 

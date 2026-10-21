@@ -64,14 +64,14 @@ cli.add_command(whoami)
 cli.add_command(server)
 
 # Phase 2: Read commands
-from ocl_cli.commands.org import org  # noqa: E402
-from ocl_cli.commands.user import user  # noqa: E402
-from ocl_cli.commands.repo import repo  # noqa: E402
-from ocl_cli.commands.concept import concept  # noqa: E402
-from ocl_cli.commands.mapping import mapping  # noqa: E402
 from ocl_cli.commands.cascade import cascade_cmd  # noqa: E402
-from ocl_cli.commands.ref import ref  # noqa: E402
+from ocl_cli.commands.concept import concept  # noqa: E402
 from ocl_cli.commands.expansion import expansion  # noqa: E402
+from ocl_cli.commands.mapping import mapping  # noqa: E402
+from ocl_cli.commands.org import org  # noqa: E402
+from ocl_cli.commands.ref import ref  # noqa: E402
+from ocl_cli.commands.repo import repo  # noqa: E402
+from ocl_cli.commands.user import user  # noqa: E402
 
 cli.add_command(org)
 cli.add_command(user)
@@ -88,8 +88,8 @@ from ocl_cli.commands.task import task  # noqa: E402
 cli.add_command(task)
 
 # Operational tools
-from ocl_cli.commands.tool import tool  # noqa: E402
 from ocl_cli.commands.import_cmd import import_cmd  # noqa: E402
+from ocl_cli.commands.tool import tool  # noqa: E402
 
 cli.add_command(tool)
 cli.add_command(import_cmd)
